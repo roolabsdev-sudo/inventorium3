@@ -293,17 +293,14 @@
     bcRole.textContent = roleName(emp.roleId);
     bcId.textContent = emp.id;
     try {
-      JsBarcode(bcSvg, emp.id, {
-        format: "CODE128",
-        lineColor: "#111",
-        background: "#ffffff",
-        width: 2,
-        height: 64,
-        displayValue: false,
-        margin: 6
-      });
+      var qr = qrcode(0, "M");
+      qr.addData(String(emp.id));
+      qr.make();
+      bcSvg.outerHTML = qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true })
+        .replace("<svg", '<svg id="bc-svg"');
+      bcSvg = document.getElementById("bc-svg");
     } catch (err) {
-      console.error("Barcode render failed", err);
+      console.error("QR render failed", err);
     }
     bcDialog.showModal();
   }

@@ -33,7 +33,7 @@
       "<td>" + UI.esc(it.location) + "</td>" +
       '<td><span class="badge ' + s.cls + '">' + s.label + "</span></td>" +
       '<td><div class="row-actions">' +
-      '<button class="icon-btn" data-barcode="' + UI.esc(it.id) + '" title="Generate barcode" aria-label="Generate barcode for ' + UI.esc(it.name) + '">' +
+      '<button class="icon-btn" data-barcode="' + UI.esc(it.id) + '" title="Generate QR code" aria-label="Generate QR code for ' + UI.esc(it.name) + '">' +
       '<svg viewBox="0 0 24 24"><path d="M4 5v14M8 5v14M11 5v14M15 5v14M17 5v14M20 5v14"/></svg></button>' +
       '<button class="icon-btn" data-edit="' + UI.esc(it.id) + '" title="Edit" aria-label="Edit ' + UI.esc(it.name) + '">' +
       '<svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' +
@@ -196,7 +196,7 @@
       if (res.ok) {
         expandedGroups[groupId] = true;
         render();
-        UI.toast("Added another unit — generate its barcode when ready");
+        UI.toast("Added another unit — generate its QR code when ready");
         openBarcode(res.item.id);
       } else {
         UI.toast("Couldn't add another unit", "error");
@@ -641,7 +641,7 @@
       Store.addLog({ type: "add", itemId: newConsumable.id, itemName: newConsumable.name, empName: "" });
       dialog.close();
       render();
-      UI.toast("Consumable added — generate a barcode for the bin if you'd like");
+      UI.toast("Consumable added — generate a QR code for the bin if you'd like");
       openBarcode(newConsumable.id);
       return;
     }
@@ -675,7 +675,7 @@
       Store.addLog({ type: "add", itemId: newItem.id, itemName: newItem.name, empName: "" });
       dialog.close();
       render();
-      UI.toast("Item added — generate its barcode when ready");
+      UI.toast("Item added — generate its QR code when ready");
       openBarcode(newItem.id);
       return;
     }
@@ -709,7 +709,7 @@
     expandedGroups[id] = true;
     dialog.close();
     render();
-    UI.toast(qty + " units added — generate their barcodes when ready");
+    UI.toast(qty + " units added — generate their QR codes when ready");
     openBarcode(created[0].id);
   });
 
@@ -777,17 +777,14 @@
     bcName.textContent = item.name;
     bcId.textContent = item.id;
     try {
-      JsBarcode(bcSvg, item.id, {
-        format: "CODE128",
-        lineColor: "#111",
-        background: "#ffffff",
-        width: 2,
-        height: 64,
-        displayValue: false,
-        margin: 6
-      });
+      var qr = qrcode(0, "M");
+      qr.addData(String(item.id));
+      qr.make();
+      bcSvg.outerHTML = qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true })
+        .replace("<svg", '<svg id="bc-svg"');
+      bcSvg = document.getElementById("bc-svg");
     } catch (e) {
-      console.error("Barcode render failed", e);
+      console.error("QR render failed", e);
     }
     bcDialog.showModal();
   }

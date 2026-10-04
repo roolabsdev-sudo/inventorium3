@@ -718,7 +718,11 @@ dialog form .dialog-actions {
 }
 
 #bc-svg {
+  display: block;
+  width: 200px;
+  height: 200px;
   max-width: 100%;
+  margin: 0 auto;
 }
 
 /* ---------- Row actions ---------- */
