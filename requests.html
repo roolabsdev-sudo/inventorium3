@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-page="Join requests">Join requests — Inventorium</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <script src="js/branding.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" id="rail"></aside>
+
+    <main class="main">
+      <header class="page-head">
+        <div>
+          <h1>Join requests</h1>
+        </div>
+        <button class="btn btn-primary" type="button" id="new-code-btn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          New join code
+        </button>
+      </header>
+
+      <section class="module" aria-labelledby="req-title">
+        <div class="module-head">
+          <h2 id="req-title">Waiting for approval</h2>
+          <span class="dim mono" id="req-count"></span>
+        </div>
+        <div class="module-body">
+          <p class="dim" style="margin-bottom:4px;">
+            People who signed up and entered one of your join codes. Nothing is shared with them until you approve:
+            they then join with the role and access the code promised. You can change either afterwards on the Employees page.
+          </p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Person</th>
+                <th scope="col">Will get</th>
+                <th scope="col">Asked</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="req-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <header class="page-head" style="margin-top: 28px;">
+        <div><h2 style="margin: 0;">Join codes</h2></div>
+      </header>
+      <section class="module" aria-labelledby="codes-title">
+        <div class="module-head">
+          <h2 id="codes-title">Codes you've shared</h2>
+          <span class="dim mono" id="code-count"></span>
+        </div>
+        <div class="module-body">
+          <p class="dim" style="margin-bottom:4px;">
+            Give a code to the people you want to add. They sign up at the sign-in page, choose <em>Join with a code</em>
+            and type it in. A code only lets someone <em>ask</em> to join; you still approve each person.
+            Turn a code off if it gets shared further than you meant.
+          </p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Code</th>
+                <th scope="col">Gives</th>
+                <th scope="col">Used</th>
+                <th scope="col">Expires</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="code-rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- New join code dialog -->
+  <dialog id="code-dialog">
+    <form method="dialog" id="code-form">
+      <h2>New join code</h2>
+      <p class="dim" style="margin:-4px 0 14px;font-size:.85rem;">Everyone who uses this code asks to join with the role and access below.</p>
+      <div class="form-grid">
+        <label class="form-field form-field-wide">
+          <span>Role</span>
+          <select id="c-role"></select>
+        </label>
+        <p class="dim form-field-wide" style="font-size:.8rem;margin:0;">What each page lets them do:</p>
+        <div class="perm-grid form-field-wide">
+          <label class="form-field">
+            <span>Inventory &amp; Scan</span>
+            <select id="c-perm-inventory">
+              <option value="none">No access</option><option value="view" selected>View only</option><option value="edit">Can edit</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span>Call List</span>
+            <select id="c-perm-call">
+              <option value="none">No access</option><option value="view" selected>View only</option><option value="edit">Can edit</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span>Employees</span>
+            <select id="c-perm-employees">
+              <option value="none" selected>No access</option><option value="view">View only</option><option value="edit">Can edit</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span>Settings</span>
+            <select id="c-perm-settings">
+              <option value="none" selected>No access</option><option value="view">View only</option><option value="edit">Can edit</option>
+            </select>
+          </label>
+        </div>
+        <label class="form-field">
+          <span>Expires after</span>
+          <select id="c-days">
+            <option value="1">1 day</option><option value="3">3 days</option><option value="7" selected>7 days</option>
+            <option value="14">14 days</option><option value="30">30 days</option>
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Limit uses <span class="dim">(optional)</span></span>
+          <input type="number" id="c-max" min="1" max="1000" step="1" placeholder="No limit" />
+        </label>
+      </div>
+      <p class="dim" id="c-warn" style="margin-top:12px;font-size:.82rem;color:var(--warn);" hidden>This gives the people who use it control over your Employees and/or Settings, including adding and removing people. Only choose that for people you trust as admins.</p>
+      <div class="dialog-actions">
+        <span style="flex:1"></span>
+        <button type="button" class="btn btn-ghost" id="c-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="c-save">Create code</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/boot.js" data-area="employees" data-need="edit" data-page="js/requests.js"></script>
+</body>
+</html>

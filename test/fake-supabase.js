@@ -6,15 +6,19 @@
  */
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
-const PK = { venues: ["id"] };
+const PK = { venues: ["id"], join_requests: ["id"], join_codes: ["id"] };
+const SERIAL = ["join_requests", "join_codes"]; // bigserial ids: the database numbers new rows
 const UNIQUE = {
   venues: [["owner_email"]], // db/venues-onboarding.sql: one live venue per owner email
   employees: [["email"]],
   roles: [["venue_id", "name"]],
   locations: [["venue_id", "name"]],
   show_roles: [["venue_id", "name"]],
-  call_list: [["venue_id", "show_id", "emp_id"]]
+  call_list: [["venue_id", "show_id", "emp_id"]],
+  join_codes: [["code"]]
 };
+// db/venues-onboarding.sql: a person can wait on only one venue at a time (unique among pending rows).
+const PARTIAL_UNIQUE = { join_requests: [{ cols: ["email"], when: (r) => r.status === "pending" }] };
 const FKS = [
   { table: "items", cols: ["holder"], ref: "employees", onDelete: "null" },
   { table: "call_list", cols: ["show_id"], ref: "shows", onDelete: "cascade" },
@@ -34,6 +38,10 @@ function makeFake(seed) {
     for (const cols of [pkOf(t)].concat(UNIQUE[t] || [])) {
       if (cols.some((c) => row[c] == null)) continue;
       if (rowsOf(t).some((r) => r !== ignoreRow && same(r, row, cols))) return err("23505", "duplicate key on " + t + " (" + cols + ")");
+    }
+    for (const u of PARTIAL_UNIQUE[t] || []) {
+      if (!u.when(row)) continue;
+      if (rowsOf(t).some((r) => r !== ignoreRow && u.when(r) && same(r, row, u.cols))) return err("23505", "duplicate key on " + t + " (" + u.cols + ")");
     }
     for (const fk of FKS.filter((f) => f.table === t)) {
       if (fk.cols.some((c) => row[c] == null)) continue;
@@ -60,6 +68,7 @@ function makeFake(seed) {
     const api = {
       eq: (c, v) => (st.filters.push((r) => r[c] === v), api),
       neq: (c, v) => (st.filters.push((r) => r[c] !== v), api),
+      in: (c, arr) => (st.filters.push((r) => arr.indexOf(r[c]) !== -1), api),
       is: (c, v) => (st.filters.push((r) => (v === null ? r[c] == null : r[c] === v)), api),
       contains: (c, arr) => (st.filters.push((r) => Array.isArray(r[c]) && arr.every((x) => r[c].indexOf(x) !== -1)), api),
       order: (c, o) => ((st.order = [c, !(o && o.ascending === false)]), api),
@@ -107,6 +116,7 @@ function makeFake(seed) {
             Object.assign(existing, row);
             done.push(existing);
           } else {
+            if (SERIAL.indexOf(t) !== -1 && row.id == null) row.id = all.reduce((m, r) => Math.max(m, r.id || 0), 0) + 1;
             const e = checkInsert(t, row, null);
             if (e) return { data: null, error: e };
             all.push(row);

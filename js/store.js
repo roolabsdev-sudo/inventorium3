@@ -187,6 +187,8 @@
       return api("GET", "bootstrap").then(function (d) { hydrate(d); });
     },
     hasPending: function () { return pending > 0; },
+    // Direct call to a function, for pages (like Join requests) that talk to their own endpoints.
+    call: function (method, fn, query, body) { return api(method, fn, query, body); },
     getMe: function () { return me; },
     can: function (area, min) {
       if (!me) return false;

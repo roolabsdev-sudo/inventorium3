@@ -31,13 +31,18 @@ function getSupabaseClient() {
 }
 
 /**
- * True if this email has a join request waiting for approval. Before db/venues-onboarding.sql
+ * This email's join request that is waiting for approval, or null. Before db/venues-onboarding.sql
  * has been run the table doesn't exist; that is treated as "no request" so the site keeps working.
  */
+async function getPendingRequest(supabase, email) {
+  const { data, error } = await supabase.from("join_requests").select("*").eq("email", email).eq("status", "pending").limit(1);
+  if (error) return null;
+  return (data && data[0]) || null;
+}
+
+/** True if this email has a join request waiting for approval. */
 async function hasPendingRequest(supabase, email) {
-  const { data, error } = await supabase.from("join_requests").select("id").eq("email", email).eq("status", "pending").limit(1);
-  if (error) return false;
-  return !!(data && data.length);
+  return !!(await getPendingRequest(supabase, email));
 }
 
 /**
@@ -235,6 +240,7 @@ function jsonResponse(statusCode, body) {
 module.exports = {
   getSupabaseClient: getSupabaseClient,
   getCallerEmployee: getCallerEmployee,
+  getPendingRequest: getPendingRequest,
   hasPendingRequest: hasPendingRequest,
   hasPermission: hasPermission,
   requirePermission: requirePermission,

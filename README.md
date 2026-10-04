@@ -22,7 +22,7 @@ The app is a static frontend + Netlify Functions + a Supabase Postgres database.
 3. Open the site's `login.html` and choose **Create an account**, then confirm your email and sign in. If your email is already on a venue's roster you join that venue. Otherwise you land on a **Create your venue** page; whoever creates a venue becomes its owner and admin.
 
 ## 4. Add everyone else
-On the **Employees** page, add each person with their email, a password (min. 8 characters) and the access level for Inventory & Scan, Call List, Employees and Settings. Saving creates their login — no invite email needed. Editing a person and typing a new password resets it, but only for logins this venue created: someone who signed up for themselves resets their own password with *Forgot password?*.
+Two ways. Either give people a **join code** (Join requests page, see piece 4 below) and approve them as they sign up, or add them yourself: on the **Employees** page, add each person with their email, a password (min. 8 characters) and the access level for Inventory & Scan, Call List, Employees and Settings. Saving creates their login — no invite email needed. Editing a person and typing a new password resets it, but only for logins this venue created: someone who signed up for themselves resets their own password with *Forgot password?*.
 
 ## 5. Move over old data (optional)
 If the previous version was used in a browser, open **Settings** in that same browser as an admin and use **Import old browser data**. It is safe to run more than once.
@@ -34,3 +34,26 @@ Sign in as an admin, open **Settings → Branding**, and enter your venue name, 
 - Every request is re-checked on the server, so view-only users cannot change data even by tampering with the page.
 - Rotate the service-role key in Supabase if it is ever exposed, then update the Netlify variable.
 - Local testing: `npm install`, then `npx netlify dev` (needs the same environment variables in a `.env` file, which is git-ignored).
+
+### Piece 4: join codes and approval
+
+Run `venues-join-codes.sql` once in the Supabase SQL editor, after `venues-onboarding.sql` (safe to run again;
+undo with `venues-join-codes-rollback.sql`). It adds the `join_codes` table and the columns `join_requests` needs
+to remember what a code promised. The final result table should show `ok` on all four rows. Deploy the code
+before or after: until the SQL has run, the new page and the "Join with a code" form just report an error.
+
+How it works:
+1. An admin (anyone with **Employees: edit**) opens **Join requests** in the sidebar and chooses **New join code**:
+   a role, what each page lets people do, how long it lasts (1 to 30 days, default 7) and an optional limit on uses.
+   The code looks like `K7QM-2XPD`. Copy it and give it to your crew.
+2. The person signs up at `login.html` (confirming their email), lands on the welcome page and chooses
+   **Join with a code**. That only sends a request; they see "Waiting for approval" and can withdraw it.
+3. The admin sees them under **Waiting for approval** and chooses **Approve** or **Decline**. Approving adds them to
+   the roster with exactly the role and access the code promised; they choose **Check again** (or sign in again) and
+   they are in. Declined people go back to the welcome page and may ask again.
+
+Rules the server enforces: a code works only until it expires, is turned off or is used up (waiting and approved
+requests count towards the limit; declined and cancelled ones give the place back); someone already on any roster
+can't use a code; a person can wait on only one venue; and a wrong, expired, turned-off or used-up code all get
+the same message. Codes are unique across venues because people type one without naming the venue.
+Turning a code off stops new use but leaves requests already made for you to decide.

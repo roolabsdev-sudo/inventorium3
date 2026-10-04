@@ -1,7 +1,7 @@
 /**
  * Welcome page: where someone lands after signing in when their email isn't on any venue's roster.
- *   needs_venue -> "Create your venue" form
- *   pending     -> "Waiting for approval"
+ *   needs_venue -> "Create your venue" form, or "Join with a code" to ask an existing venue
+ *   pending     -> "Waiting for approval" (with the venue's name, and a way to withdraw)
  *   member      -> straight on to the app
  * The server decides (GET /api/onboarding); this page only shows the result.
  */
@@ -10,7 +10,7 @@
 
   var FN = "/.netlify/functions/onboarding";
   var $ = function (id) { return document.getElementById(id); };
-  var panels = ["w-loading", "w-create", "w-pending", "w-fail"];
+  var panels = ["w-loading", "w-create", "w-join", "w-pending", "w-fail"];
   var logo = null;
 
   function show(which) {
@@ -53,7 +53,10 @@
     show("w-loading");
     call("GET").then(function (r) {
       if (r.state === "member") return toApp();
-      if (r.state === "pending") return show("w-pending");
+      if (r.state === "pending") {
+        $("w-pending-venue").textContent = r.venueName || "a venue";
+        return show("w-pending");
+      }
       $("w-email").textContent = (netlifyIdentity.currentUser() || {}).email || "";
       show("w-create");
       fail(typeof note === "string" ? note : "");
@@ -120,6 +123,46 @@
       if (err.status === 401) return toLogin();
       if (err.status === 409) return check(err.message); // already a member / pending: show the right screen
       fail(err.message);
+    });
+  });
+
+  /* ----- join an existing venue with a code ----- */
+  function joinFail(msg) { var e = $("w-join-error"); e.textContent = msg; e.hidden = !msg; }
+
+  $("w-to-join").addEventListener("click", function () {
+    var u = netlifyIdentity.currentUser() || {};
+    $("w-join-email").textContent = u.email || "";
+    var typed = $("w-join-name");
+    if (!typed.value) typed.value = (u.user_metadata && u.user_metadata.full_name) || "";
+    joinFail("");
+    show("w-join");
+    $("w-code").focus();
+  });
+  $("w-join-back").addEventListener("click", function () { show("w-create"); $("w-name").focus(); });
+
+  $("w-join-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    joinFail("");
+    var btn = $("w-join-submit");
+    btn.disabled = true; btn.textContent = "Sending…";
+    call("POST", { action: "join", code: $("w-code").value, name: $("w-join-name").value }).then(function () {
+      btn.disabled = false; btn.textContent = "Ask to join";
+      $("w-code").value = "";
+      check(); // shows the waiting screen
+    }).catch(function (err) {
+      btn.disabled = false; btn.textContent = "Ask to join";
+      if (err.status === 401) return toLogin();
+      if (err.status === 409) { btn.textContent = "Ask to join"; return check(err.message); } // already a member / waiting: show the right screen
+      joinFail(err.message);
+    });
+  });
+
+  $("w-cancel-request").addEventListener("click", function () {
+    if (!confirm("Withdraw your request to join?")) return;
+    call("POST", { action: "cancel" }).then(function () { check(); }).catch(function (err) {
+      if (err.status === 401) return toLogin();
+      $("w-fail-note").textContent = err.message + " Check your connection and try again.";
+      show("w-fail");
     });
   });
 

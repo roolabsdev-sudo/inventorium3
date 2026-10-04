@@ -243,7 +243,9 @@ test("no function reads or writes a data table with the raw client", () => {
   // look across venues on purpose (one venue per email), and none of them returns another venue's data.
   const allowed = {
     "branding.js": ["venues"], "bootstrap.js": ["venues"],
-    "onboarding.js": ["venues", "employees"],
+    // onboarding.js also reads join_codes (the code itself is the credential) and writes only the caller's own
+    // join_requests, matched on their verified email or on the id of the request it just made.
+    "onboarding.js": ["venues", "employees", "join_codes", "join_requests"],
     "identity-users.js": ["venues"]
   };
   const offenders = [];
