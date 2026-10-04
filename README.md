@@ -14,15 +14,15 @@ The app is a static frontend + Netlify Functions + a Supabase Postgres database.
 2. **Site configuration → Environment variables**, add:
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
-   - `ADMIN_EMAILS` *(optional)* — comma-separated emails that become full admins on first login. If you leave it out, the very first person to sign in becomes the admin.
+   - *(`ADMIN_EMAILS` is no longer used. Nobody becomes an admin just by signing in: see step 3.)*
 
 ## 3. Turn on login (Netlify Identity)
 1. **Site configuration → Identity → Enable Identity**.
-2. Under **Registration preferences**, choose **Invite only** so strangers can't sign up.
-3. Open the site's `login.html`. Invite your own email from **Identity → Invite users** (or use ADMIN_EMAILS), accept the email, and sign in. The first login creates your admin employee record.
+2. Under **Registration preferences**, choose **Open** so anyone can create an account and set up their own venue. Leave **Autoconfirm** OFF: people must confirm their email before they can sign in. The app relies on this, because a roster match by email is only trustworthy for a confirmed address.
+3. Open the site's `login.html` and choose **Create an account**, then confirm your email and sign in. If your email is already on a venue's roster you join that venue. Otherwise you land on a **Create your venue** page; whoever creates a venue becomes its owner and admin.
 
 ## 4. Add everyone else
-On the **Employees** page, add each person with their email, a password (min. 8 characters) and the access level for Inventory & Scan, Call List, Employees and Settings. Saving creates their login — no invite email needed. Editing a person and typing a new password resets it.
+On the **Employees** page, add each person with their email, a password (min. 8 characters) and the access level for Inventory & Scan, Call List, Employees and Settings. Saving creates their login — no invite email needed. Editing a person and typing a new password resets it, but only for logins this venue created: someone who signed up for themselves resets their own password with *Forgot password?*.
 
 ## 5. Move over old data (optional)
 If the previous version was used in a browser, open **Settings** in that same browser as an admin and use **Import old browser data**. It is safe to run more than once.

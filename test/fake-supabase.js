@@ -8,6 +8,7 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 
 const PK = { venues: ["id"] };
 const UNIQUE = {
+  venues: [["owner_email"]], // db/venues-onboarding.sql: one live venue per owner email
   employees: [["email"]],
   roles: [["venue_id", "name"]],
   locations: [["venue_id", "name"]],

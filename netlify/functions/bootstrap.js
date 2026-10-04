@@ -26,7 +26,7 @@ exports.handler = async function (event, context) {
   }
 
   const { employee: me, error } = await getCallerEmployee(context, supabase);
-  if (error) return jsonResponse(error.statusCode, { error: error.message });
+  if (error) return jsonResponse(error.statusCode, { error: error.message, code: error.code });
 
   const db = venueDb(supabase, me.venue_id);
 

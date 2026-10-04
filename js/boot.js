@@ -109,6 +109,8 @@
     });
   }).catch(function (err) {
     if (err && err.status === 401) { toLogin(); return; }
+    // Logged in, but not on any venue's roster yet (or waiting for approval): onboarding page.
+    if (err && (err.code === "needs_onboarding" || err.code === "pending")) { location.replace("welcome.html"); return; }
     var msg = (err && err.message) || "Something went wrong.";
     if (err && err.status === 403) fatal("Can't open the app", msg);
     else fatal("Couldn't load your data", msg + " Check your connection and try again.");

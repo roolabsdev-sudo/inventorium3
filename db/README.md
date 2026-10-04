@@ -14,15 +14,15 @@ The app is a static frontend + Netlify Functions + a Supabase Postgres database.
 2. **Site configuration → Environment variables**, add:
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
-   - `ADMIN_EMAILS` *(optional)* — comma-separated emails that become full admins on first login. If you leave it out, the very first person to sign in becomes the admin.
+   - *(`ADMIN_EMAILS` is no longer used. Nobody becomes an admin just by signing in: see step 3.)*
 
 ## 3. Turn on login (Netlify Identity)
 1. **Site configuration → Identity → Enable Identity**.
-2. Under **Registration preferences**, choose **Invite only** so strangers can't sign up.
-3. Open the site's `login.html`. Invite your own email from **Identity → Invite users** (or use ADMIN_EMAILS), accept the email, and sign in. The first login creates your admin employee record.
+2. Under **Registration preferences**, choose **Open** so anyone can create an account and set up their own venue. Leave **Autoconfirm** OFF: people must confirm their email before they can sign in. The app relies on this, because a roster match by email is only trustworthy for a confirmed address.
+3. Open the site's `login.html` and choose **Create an account**, then confirm your email and sign in. If your email is already on a venue's roster you join that venue. Otherwise you land on a **Create your venue** page; whoever creates a venue becomes its owner and admin.
 
 ## 4. Add everyone else
-On the **Employees** page, add each person with their email, a password (min. 8 characters) and the access level for Inventory & Scan, Call List, Employees and Settings. Saving creates their login — no invite email needed. Editing a person and typing a new password resets it.
+On the **Employees** page, add each person with their email, a password (min. 8 characters) and the access level for Inventory & Scan, Call List, Employees and Settings. Saving creates their login — no invite email needed. Editing a person and typing a new password resets it, but only for logins this venue created: someone who signed up for themselves resets their own password with *Forgot password?*.
 
 ## 5. Move over old data (optional)
 If the previous version was used in a browser, open **Settings** in that same browser as an admin and use **Import old browser data**. It is safe to run more than once.
@@ -52,3 +52,15 @@ Undo, in reverse: `venues-ids-rollback.sql`, then `venues-rollback.sql`.
 Every Netlify Function reaches data through `venueDb()` in `netlify/functions/_shared/auth.js`,
 which pins each query to the caller's venue. Run `npm test` to check that one venue can't
 read or change another's data.
+
+### Piece 3: sign-up onboarding
+
+Run `venues-onboarding.sql` once in the Supabase SQL editor (safe to run again; undo with
+`venues-onboarding-rollback.sql`). It adds the `join_requests` table that the "Waiting for approval"
+screen reads (piece 4 fills it) and makes the database refuse a second venue for the same owner email.
+The site works whether you run it before or after deploying the piece-3 code. The final result table should
+show `ok` on both rows.
+
+What changed for people: signing in with an email that is on no roster no longer dead-ends. They get a
+**Create your venue** page (name required; subtitle and logo optional) and become that venue's owner and admin.
+Before opening sign-up to the public, set Netlify Identity registration to **Open** with Autoconfirm **off**.

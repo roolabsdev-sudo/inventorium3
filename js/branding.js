@@ -22,8 +22,8 @@
       logo: typeof d.logo === "string" && /^data:image\/(png|jpeg|webp);base64,/.test(d.logo) ? d.logo : null
     };
   }
-  // The sign-in page doesn't know the venue yet, so it never shows a remembered venue's name.
-  var ON_LOGIN = /login\.html$/.test(location.pathname);
+  // The sign-in and welcome pages don't know the venue yet, so they never show a remembered venue's name.
+  var ON_LOGIN = /(login|welcome)\.html$/.test(location.pathname);
   function readCache() {
     if (ON_LOGIN) return clean(DEFAULTS);
     try { return clean(JSON.parse(localStorage.getItem(KEY))); } catch (e) { return clean(DEFAULTS); }

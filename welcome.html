@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-page="Welcome">Welcome — Inventorium</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/branding.css" />
+  <script src="js/branding.js"></script>
+</head>
+<body>
+  <main class="login-wrap">
+    <section class="login-card welcome-card" aria-live="polite">
+      <img class="login-mark" data-brand-logo src="img/logo-placeholder.png" alt="" aria-hidden="true" />
+
+      <!-- Checking who you are -->
+      <div id="w-loading">
+        <h1>One moment…</h1>
+        <p class="dim login-sub" id="w-loading-note">Checking your account.</p>
+      </div>
+
+      <!-- Not on any roster: set up a venue of your own -->
+      <div id="w-create" hidden>
+        <h1>Create your venue</h1>
+        <p class="dim login-sub">You're signed in as <strong id="w-email"></strong>, but that email isn't on a venue's roster yet. Set up your own &mdash; you'll be its owner and admin, and you can add your crew afterwards.</p>
+        <form id="w-form" class="branding-form" autocomplete="off" style="text-align:left;">
+          <div class="form-grid">
+            <label class="form-field form-field-wide">
+              <span>Venue name</span>
+              <input type="text" id="w-name" maxlength="60" required placeholder="e.g. Lincoln High Theater" />
+            </label>
+            <label class="form-field form-field-wide">
+              <span>Subtitle <span class="dim">(optional)</span></span>
+              <input type="text" id="w-sub" maxlength="40" placeholder="e.g. Inventory" />
+            </label>
+            <div class="form-field form-field-wide">
+              <span>Logo <span class="dim">(optional)</span></span>
+              <div class="branding-logo-row">
+                <div class="branding-logo-box"><img id="w-logo-preview" alt="" src="img/logo-placeholder.png" /></div>
+                <div class="branding-logo-actions">
+                  <input type="file" id="w-logo-file" accept="image/png,image/jpeg,image/webp" hidden />
+                  <button type="button" class="btn btn-ghost" id="w-logo-pick">Upload image</button>
+                  <button type="button" class="btn btn-ghost" id="w-logo-remove" hidden>Remove</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="dim" id="w-error" role="alert" style="margin-top:14px;color:var(--fault);" hidden></p>
+          <button type="submit" class="btn btn-primary login-btn" id="w-submit" style="margin-top:18px;">Create venue</button>
+        </form>
+        <p class="dim" style="margin-top:16px;font-size:.8rem;">Joining a venue that already exists? Ask its admin to add your email to their roster, then sign in again.</p>
+      </div>
+
+      <!-- Asked to join a venue, waiting for an admin to approve -->
+      <div id="w-pending" hidden>
+        <h1>Waiting for approval</h1>
+        <p class="dim login-sub">Your request to join a venue has been sent. An admin there needs to approve it. Once they do, choose <em>Check again</em> and you'll land in their venue.</p>
+        <button class="btn btn-ghost login-btn" type="button" id="w-recheck">Check again</button>
+      </div>
+
+      <!-- Something went wrong -->
+      <div id="w-fail" hidden>
+        <h1>Couldn't load your account</h1>
+        <p class="dim login-sub" id="w-fail-note"></p>
+        <button class="btn btn-primary login-btn" type="button" id="w-retry">Try again</button>
+      </div>
+
+      <p style="margin-top:18px;"><button class="btn btn-ghost" type="button" id="w-signout" style="font-size:.85rem;">Sign out</button></p>
+    </section>
+  </main>
+
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <script src="js/welcome.js"></script>
+</body>
+</html>

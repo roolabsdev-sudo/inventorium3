@@ -74,6 +74,7 @@
         if (!res.ok) {
           var err = new Error(json.error || ("Request failed (" + res.status + ")"));
           err.status = res.status;
+          err.code = json.code;
           throw err;
         }
         return json;

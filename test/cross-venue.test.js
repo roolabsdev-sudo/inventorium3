@@ -239,7 +239,13 @@ test("legacy import lands in the caller's venue and never touches B", async () =
 /* ---------- guard rail ---------- */
 
 test("no function reads or writes a data table with the raw client", () => {
-  const allowed = { "branding.js": ["venues"], "bootstrap.js": ["venues"] };
+  // Raw-client reads that are deliberately not venue-pinned: they happen before a venue exists or
+  // look across venues on purpose (one venue per email), and none of them returns another venue's data.
+  const allowed = {
+    "branding.js": ["venues"], "bootstrap.js": ["venues"],
+    "onboarding.js": ["venues", "employees"],
+    "identity-users.js": ["venues"]
+  };
   const offenders = [];
   for (const file of fs.readdirSync(FN).filter((f) => f.endsWith(".js"))) {
     const src = fs.readFileSync(path.join(FN, file), "utf8");

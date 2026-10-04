@@ -31,8 +31,18 @@ function getSupabaseClient() {
 }
 
 /**
+ * True if this email has a join request waiting for approval. Before db/venues-onboarding.sql
+ * has been run the table doesn't exist; that is treated as "no request" so the site keeps working.
+ */
+async function hasPendingRequest(supabase, email) {
+  const { data, error } = await supabase.from("join_requests").select("id").eq("email", email).eq("status", "pending").limit(1);
+  if (error) return false;
+  return !!(data && data.length);
+}
+
+/**
  * Resolves the calling employee from the Netlify Identity context.
- * Returns { employee, error } — error is a { statusCode, message } shape
+ * Returns { employee, error } — error is a { statusCode, message, code? } shape
  * ready to hand straight back to the client on failure.
  */
 async function getCallerEmployee(context, supabase) {
@@ -51,44 +61,16 @@ async function getCallerEmployee(context, supabase) {
     return { employee: null, error: { statusCode: 500, message: "Could not look up permissions." } };
   }
   if (!data) {
-    // First-run bootstrap: if nobody exists yet (or the email is listed in the
-    // ADMIN_EMAILS env var), the first person to log in becomes a full admin so
-    // there is always a way to create the rest of the roster.
-    const adminEmails = String(process.env.ADMIN_EMAILS || "")
-      .toLowerCase().split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+    // Not on any roster. There is no automatic admin any more: the person either has a
+    // join request waiting for approval ("pending") or needs to create their own venue
+    // ("needs_onboarding"). The welcome page handles both; see netlify/functions/onboarding.js.
     const email = identityUser.email.toLowerCase();
-    let allowBootstrap = adminEmails.indexOf(email) !== -1;
-    if (!allowBootstrap) {
-      const { count } = await supabase.from("employees").select("id", { count: "exact", head: true });
-      allowBootstrap = count === 0;
-    }
-    if (allowBootstrap) {
-      const name = (identityUser.user_metadata && identityUser.user_metadata.full_name) || email.split("@")[0];
-      const firstVenue = await supabase.from("venues").select("id").is("deleted_at", null).order("created_at").limit(1).maybeSingle();
-      if (firstVenue.error || !firstVenue.data) {
-        return { employee: null, error: { statusCode: 500, message: "No venue exists yet. Run db/venues-groundwork.sql." } };
-      }
-      const row = {
-        venue_id: firstVenue.data.id,
-        id: "ADMIN-1", name: name, email: email, active: true,
-        perm_inventory: "edit", perm_call_list: "edit", perm_employees: "edit", perm_settings: "edit"
-      };
-      const { data: created, error: createErr } = await supabase.from("employees").insert(row).select().single();
-      if (createErr) {
-        // ADMIN-1 may already be taken (another admin-listed email logged in first); pick a free id.
-        row.id = "ADMIN-" + Date.now().toString().slice(-6);
-        const retry = await supabase.from("employees").insert(row).select().single();
-        if (retry.error) return { employee: null, error: { statusCode: 500, message: "Could not create the first admin." } };
-        return { employee: retry.data, error: null };
-      }
-      return { employee: created, error: null };
+    if (await hasPendingRequest(supabase, email)) {
+      return { employee: null, error: { statusCode: 403, code: "pending", message: "Your request to join is waiting for approval." } };
     }
     return {
       employee: null,
-      error: {
-        statusCode: 403,
-        message: "Your login isn't linked to an employee record. Ask an advisor to add your email on the Employees page."
-      }
+      error: { statusCode: 403, code: "needs_onboarding", message: "Your login isn't linked to a venue yet." }
     };
   }
   if (!data.active) {
@@ -253,6 +235,7 @@ function jsonResponse(statusCode, body) {
 module.exports = {
   getSupabaseClient: getSupabaseClient,
   getCallerEmployee: getCallerEmployee,
+  hasPendingRequest: hasPendingRequest,
   hasPermission: hasPermission,
   requirePermission: requirePermission,
   identityAdmin: identityAdmin,

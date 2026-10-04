@@ -13,10 +13,11 @@
     <section class="login-card" aria-labelledby="login-title">
       <img class="login-mark" data-brand-logo src="img/logo-placeholder.png" alt="" aria-hidden="true" />
       <h1 id="login-title" data-brand-name>Inventorium</h1>
-      <p class="dim login-sub">Inventory &amp; crew — sign in with the email and password your advisor set up for you.</p>
+      <p class="dim login-sub">Inventory &amp; crew — sign in, or create an account to set up a venue of your own.</p>
       <button class="btn btn-primary login-btn" type="button" id="login-btn">Sign in</button>
+      <button class="btn btn-ghost login-btn" type="button" id="signup-btn" style="margin-top:10px;">Create an account</button>
       <p class="dim" id="login-note" style="margin-top:14px;font-size:.85rem;"></p>
-      <p class="dim" style="margin-top:18px;font-size:.8rem;">Forgot your password? Choose <em>Sign in</em>, then <em>Forgot password?</em> — or ask an advisor to set a new one.</p>
+      <p class="dim" style="margin-top:18px;font-size:.8rem;">Forgot your password? Choose <em>Sign in</em>, then <em>Forgot password?</em> — or ask an admin to set a new one.</p>
     </section>
   </main>
 
@@ -47,6 +48,7 @@
       netlifyIdentity.init();
 
       btn.addEventListener("click", function () { netlifyIdentity.open("login"); });
+      document.getElementById("signup-btn").addEventListener("click", function () { netlifyIdentity.open("signup"); });
 
       // Open the sign-in box right away unless an emailed invite/reset link is being handled.
       if (!/(invite|recovery|confirmation|email_change)_token=/.test(location.hash) && !netlifyIdentity.currentUser()) {
