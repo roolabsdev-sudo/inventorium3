@@ -6,8 +6,8 @@
  */
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
-const PK = { venues: ["id"], join_requests: ["id"], join_codes: ["id"] };
-const SERIAL = ["join_requests", "join_codes"]; // bigserial ids: the database numbers new rows
+const PK = { venues: ["id"], join_requests: ["id"], join_codes: ["id"], scanner_codes: ["id"], scanner_devices: ["id"] };
+const SERIAL = ["join_requests", "join_codes", "scanner_codes", "scanner_devices"]; // bigserial ids: the database numbers new rows
 const UNIQUE = {
   venues: [["owner_email"]], // db/venues-onboarding.sql: one live venue per owner email
   employees: [["email"]],
@@ -15,7 +15,9 @@ const UNIQUE = {
   locations: [["venue_id", "name"]],
   show_roles: [["venue_id", "name"]],
   call_list: [["venue_id", "show_id", "emp_id"]],
-  join_codes: [["code"]]
+  join_codes: [["code"]],
+  scanner_codes: [["code"]],
+  scanner_devices: [["token_hash"]]
 };
 // db/venues-onboarding.sql: a person can wait on only one venue at a time (unique among pending rows).
 const PARTIAL_UNIQUE = { join_requests: [{ cols: ["email"], when: (r) => r.status === "pending" }] };

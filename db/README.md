@@ -99,3 +99,10 @@ owns it, is its only member, it has no items, shows, roles, locations, call list
 to join it. A bad, expired or used-up code never costs them the venue: the venue is removed only after the request
 has been safely made, and if removal fails the roster row is restored and the request withdrawn. If they are later
 declined, they can create a venue again. Venues that have data are deleted through piece 5, not this way.
+
+### Scanner codes
+
+Run `venues-scanner-codes.sql` once in the Supabase SQL editor, after `venues-onboarding.sql` (safe to run again;
+undo with `venues-scanner-codes-rollback.sql`, which also signs out every scanner). It adds `scanner_codes` (a code an admin
+hands out) and `scanner_devices` (one row per device that used a code; only a hash of its token is stored). The final result
+table should show `ok` on all four rows. See the main README for how scanners work.

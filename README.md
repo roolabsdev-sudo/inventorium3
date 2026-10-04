@@ -69,3 +69,31 @@ owns it, is its only member, it has no items, shows, roles, locations, call list
 to join it. A bad, expired or used-up code never costs them the venue: the venue is removed only after the request
 has been safely made, and if removal fails the roster row is restored and the request withdrawn. If they are later
 declined, they can create a venue again. Venues that have data are deleted through piece 5, not this way.
+
+### Scanner codes: scan-only devices
+
+Run `db/venues-scanner-codes.sql` once in the Supabase SQL editor, after `venues-onboarding.sql` (safe to run again;
+undo with `venues-scanner-codes-rollback.sql`). It adds the `scanner_codes` and `scanner_devices` tables. The final
+result table should show `ok` on all four rows. Until it has run, the **Scanners** page and the scanner-code box on the
+sign-in page report an error; nothing else changes.
+
+How it works:
+1. An admin (anyone with **Employees: edit**) opens **Scanners** in the sidebar and chooses **New scanner code**:
+   an optional label, how long it can be entered (1 hour to 7 days, default 1 day) and how many devices may use it
+   (1 to 10, default 1). The code looks like `K7QM-2XPD`.
+2. On the spare phone or tablet, open the sign-in page (`login.html?scanner=1` opens the code box straight away),
+   type the code and, if you like, a name for the scanner. That is all: **no email or password**.
+3. The device is now a scanner. It sees only the Scan page, and it can only check items in and out and use up stock.
+   It stays a scanner, even after the browser is closed, until someone chooses **Sign out** in its sidebar, or an admin
+   signs it out from the Scanners page (it stops working on its next use).
+
+Rules the server enforces:
+- A scanner device has no login. It holds a random token; only a hash of it is stored. The token is accepted by one function
+  only (`scanner`). Every other function needs a real login, so a scanner can't open Inventory, Employees, Settings or
+  Join requests even by editing the page. It can't add stock, change an item's status, edit or delete anything.
+- Check-out, check-in and "use stock" run the very same code as the Inventory page (`_shared/itemactions.js`), so restricted
+  items, inactive people, items already out and "not enough in stock" all apply.
+- Every device is pinned to the venue of the code it used. A wrong, expired, turned-off, used-up or deleted-venue code all
+  get the same message. Signing a device out never frees its place on a code: make a new code.
+- Turning a code off stops new devices but leaves signed-in ones working; sign those out separately.
+- At most 10 scanners signed in per venue and 20 unexpired codes per venue.

@@ -39,6 +39,11 @@
   }
 
   function signOut() {
+    // A scanner device has no login: signing out forgets its scanner token.
+    if (window.Store && Store.scannerMode && Store.scannerMode()) {
+      Store.scannerSignOut().then(function () { location.href = "login.html"; });
+      return;
+    }
     try {
       var p = netlifyIdentity.logout();
       if (p && p.then) p.then(function () { location.href = "login.html"; });
@@ -62,7 +67,18 @@
 
   window.Auth = { signOut: signOut };
 
-  loadScript(WIDGET).then(function () {
+  var scannerDevice = !!(window.Store && Store.scannerMode && Store.scannerMode());
+  var thisPage = location.pathname.split("/").pop() || "index.html";
+
+  (scannerDevice ? Promise.resolve() : loadScript(WIDGET)).then(function () {
+    // A scanner device (signed in with a scanner code) may only use the Scan page.
+    if (scannerDevice) {
+      if (thisPage !== "scan.html") {
+        location.replace("scan.html");
+        return new Promise(function () {});
+      }
+      return Store.load();
+    }
     // Invite / password-reset / confirmation links land on whatever page the emailed link points at.
     if (/(invite|recovery|confirmation|email_change)_token=/.test(location.hash)) {
       location.replace("login.html" + location.hash);
@@ -108,7 +124,11 @@
       });
     });
   }).catch(function (err) {
-    if (err && err.status === 401) { toLogin(); return; }
+    if (err && err.status === 401) {
+      if (scannerDevice) location.replace("login.html?scanner=ended"); // this scanner was signed out
+      else toLogin();
+      return;
+    }
     // Logged in, but not on any venue's roster yet (or waiting for approval): onboarding page.
     if (err && (err.code === "needs_onboarding" || err.code === "pending")) { location.replace("welcome.html"); return; }
     var msg = (err && err.message) || "Something went wrong.";

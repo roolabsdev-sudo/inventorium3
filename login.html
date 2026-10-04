@@ -17,6 +17,23 @@
       <button class="btn btn-primary login-btn" type="button" id="login-btn">Sign in</button>
       <button class="btn btn-ghost login-btn" type="button" id="signup-btn" style="margin-top:10px;">Create an account</button>
       <p class="dim" id="login-note" style="margin-top:14px;font-size:.85rem;"></p>
+
+      <div id="scanner-box" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--edge);text-align:left;">
+        <button type="button" class="btn btn-ghost login-btn" id="scanner-toggle" aria-expanded="false" aria-controls="scanner-form">Use a scanner code</button>
+        <form id="scanner-form" hidden style="margin-top:12px;">
+          <p class="dim" style="font-size:.85rem;margin-bottom:12px;">An admin makes a scanner code on the <em>Scanners</em> page. Entering it turns <strong>this device</strong> into a scanner: it can check items in and out and nothing else, until you sign out of it.</p>
+          <label class="form-field">
+            <span>Scanner code</span>
+            <input type="text" id="scanner-code" class="mono" placeholder="XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" required />
+          </label>
+          <label class="form-field" style="margin-top:10px;">
+            <span>Name this scanner <span class="dim">(optional)</span></span>
+            <input type="text" id="scanner-name" placeholder="e.g. Booth phone" autocomplete="off" maxlength="60" />
+          </label>
+          <button class="btn btn-primary login-btn" type="submit" id="scanner-go" style="margin-top:14px;">Make this device a scanner</button>
+          <p class="dim" id="scanner-note" role="status" style="margin-top:10px;font-size:.85rem;"></p>
+        </form>
+      </div>
       <p class="dim" style="margin-top:18px;font-size:.8rem;">Forgot your password? Choose <em>Sign in</em>, then <em>Forgot password?</em> — or ask an admin to set a new one.</p>
     </section>
   </main>
@@ -31,6 +48,54 @@
 
       var note = document.getElementById("login-note");
       var btn = document.getElementById("login-btn");
+
+      /* ---------- Scanner devices ---------- */
+      var SCANNER_KEY = "inventorium.scanner";
+      var FN = "/.netlify/functions/";
+      var scannerParam = params.get("scanner"); // "1" = open the code box straight away, "ended" = this scanner was signed out
+      var hasScannerToken = false;
+      try { var saved = JSON.parse(localStorage.getItem(SCANNER_KEY)); hasScannerToken = !!(saved && saved.token); } catch (e) { /* none */ }
+      // Already a scanner: go straight to the Scan page (it sends us back here if the token was removed).
+      if (hasScannerToken && scannerParam !== "ended") { location.replace("scan.html"); return; }
+
+      var sForm = document.getElementById("scanner-form");
+      var sToggle = document.getElementById("scanner-toggle");
+      var sNote = document.getElementById("scanner-note");
+      var sCode = document.getElementById("scanner-code");
+      function showScannerForm(show) {
+        sForm.hidden = !show;
+        sToggle.setAttribute("aria-expanded", show ? "true" : "false");
+        if (show) sCode.focus();
+      }
+      sToggle.addEventListener("click", function () { showScannerForm(sForm.hidden); });
+      if (scannerParam === "1" || scannerParam === "ended") showScannerForm(true);
+      if (scannerParam === "ended") note.textContent = "This scanner was signed out. Enter a new scanner code to use it again, or sign in as yourself.";
+
+      sForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var go = document.getElementById("scanner-go");
+        go.disabled = true; sNote.textContent = "Checking…";
+        fetch(FN + "scanner-signin", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: sCode.value, name: document.getElementById("scanner-name").value })
+        }).then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (j) {
+            if (!res.ok || !j.token) throw new Error(j.error || "Couldn't set up this scanner. Try again.");
+            try {
+              localStorage.setItem(SCANNER_KEY, JSON.stringify({ token: j.token, venueName: j.venueName || "", label: j.label || "" }));
+            } catch (err) {
+              // This browser won't keep it (private window?). Don't leave a scanner signed in that can't be signed out.
+              fetch(FN + "scanner?action=signout", { method: "POST", headers: { "X-Scanner-Token": j.token, "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+              throw new Error("This browser won't remember the scanner (a private window?). Open the page in a normal window and try again.");
+            }
+            sNote.textContent = "Scanner ready: loading…";
+            location.replace("scan.html");
+          });
+        }).catch(function (err) {
+          sNote.textContent = err.message || "Couldn't set up this scanner. Try again.";
+          go.disabled = false;
+        });
+      });
 
       function go() { location.replace(next); }
 
@@ -51,7 +116,7 @@
       document.getElementById("signup-btn").addEventListener("click", function () { netlifyIdentity.open("signup"); });
 
       // Open the sign-in box right away unless an emailed invite/reset link is being handled.
-      if (!/(invite|recovery|confirmation|email_change)_token=/.test(location.hash) && !netlifyIdentity.currentUser()) {
+      if (!scannerParam && !/(invite|recovery|confirmation|email_change)_token=/.test(location.hash) && !netlifyIdentity.currentUser()) {
         setTimeout(function () { netlifyIdentity.open("login"); }, 150);
       }
     })();

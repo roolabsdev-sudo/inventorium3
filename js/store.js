@@ -49,12 +49,63 @@
 
   /* ---------- Server plumbing ---------- */
 
+  /* ---------- Scanner device mode ----------
+   * A device that entered a scanner code at the sign-in page holds a token here instead of a login.
+   * While the token is present the device only talks to the `scanner` function (check out / check in /
+   * use stock) and boot.js keeps it on the Scan page. Signing out removes the token. The server enforces
+   * all of this too: no other function accepts the token. */
+  var SCANNER_KEY = "inventorium.scanner";
+  var scannerEnded = false;
+
+  function scannerToken() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SCANNER_KEY));
+      return s && typeof s.token === "string" && s.token ? s.token : null;
+    } catch (e) { return null; }
+  }
+  function clearScanner() {
+    try { localStorage.removeItem(SCANNER_KEY); } catch (e) { /* nothing to clear */ }
+  }
+
+  function parseResponse(res) {
+    return res.text().then(function (text) {
+      var json = null;
+      try { json = text ? JSON.parse(text) : {}; } catch (e) { json = {}; }
+      if (!res.ok) {
+        var err = new Error(json.error || ("Request failed (" + res.status + ")"));
+        err.status = res.status;
+        err.code = json.code;
+        throw err;
+      }
+      return json;
+    });
+  }
+
+  function scannerApi(token, method, fn, query, body) {
+    var target = null;
+    if (fn === "bootstrap" && method === "GET") target = "scanner";
+    else if (fn === "items" && method === "POST" && /^action=(checkout|checkin|quantity)$/.test(query || "")) target = "scanner";
+    else if (fn === "scanner") target = "scanner";
+    if (!target) return Promise.reject(new Error("A scanner can only check items in and out."));
+    return fetch(FN + target + (query ? "?" + query : ""), {
+      method: method,
+      headers: { "X-Scanner-Token": token, "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body)
+    }).then(parseResponse).catch(function (err) {
+      if (err && err.status === 401) { scannerEnded = true; clearScanner(); } // removed by an admin, or signed out elsewhere
+      throw err;
+    });
+  }
+
   function goToLogin() {
+    if (scannerEnded) { location.replace("login.html?scanner=ended"); return; }
     var next = location.pathname.split("/").pop() || "index.html";
     location.replace("login.html?next=" + encodeURIComponent(next));
   }
 
   function api(method, fn, query, body) {
+    var token = scannerToken();
+    if (token) return scannerApi(token, method, fn, query, body);
     var user = global.netlifyIdentity && global.netlifyIdentity.currentUser();
     if (!user) {
       goToLogin();
@@ -67,19 +118,7 @@
         headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
         body: body === undefined ? undefined : JSON.stringify(body)
       });
-    }).then(function (res) {
-      return res.text().then(function (text) {
-        var json = null;
-        try { json = text ? JSON.parse(text) : {}; } catch (e) { json = {}; }
-        if (!res.ok) {
-          var err = new Error(json.error || ("Request failed (" + res.status + ")"));
-          err.status = res.status;
-          err.code = json.code;
-          throw err;
-        }
-        return json;
-      });
-    });
+    }).then(parseResponse);
   }
 
   var chain = Promise.resolve();
@@ -195,7 +234,16 @@
       var lv = me[AREA_KEY[area]] || "none";
       return min === "edit" ? lv === "edit" : (lv === "view" || lv === "edit");
     },
+    scannerMode: function () { return !!scannerToken(); },
+    // Signs this scanner out for good: tells the server (best effort), then forgets the token.
+    scannerSignOut: function () {
+      var token = scannerToken();
+      var done = function () { clearScanner(); };
+      if (!token) return Promise.resolve();
+      return scannerApi(token, "POST", "scanner", "action=signout", {}).then(done, done);
+    },
     firstAllowedPage: function () {
+      if (scannerToken()) return "scan.html";
       var pages = [
         ["index.html", "inventory"], ["inventory.html", "inventory"], ["call-list.html", "callList"],
         ["employees.html", "employees"], ["settings.html", "settings"]
