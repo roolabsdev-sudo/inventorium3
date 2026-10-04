@@ -2,7 +2,8 @@
  * Welcome page: where someone lands after signing in when their email isn't on any venue's roster.
  *   needs_venue -> "Create your venue" form, or "Join with a code" to ask an existing venue
  *   pending     -> "Waiting for approval" (with the venue's name, and a way to withdraw)
- *   member      -> straight on to the app
+ *   member      -> straight on to the app, unless they opened welcome.html?join=1 (from Settings) to swap a
+ *                  venue they made by mistake for another one: then the join form, if the server says it's still empty
  * The server decides (GET /api/onboarding); this page only shows the result.
  */
 (function () {
@@ -10,7 +11,10 @@
 
   var FN = "/.netlify/functions/onboarding";
   var $ = function (id) { return document.getElementById(id); };
-  var panels = ["w-loading", "w-create", "w-join", "w-pending", "w-fail"];
+  var panels = ["w-loading", "w-create", "w-join", "w-keep", "w-pending", "w-fail"];
+  // welcome.html?join=1: a member who made their venue by mistake, joining another venue instead.
+  var replacing = /[?&]join=1(&|$)/.test(location.search);
+  var swapName = "";
   var logo = null;
 
   function show(which) {
@@ -52,7 +56,12 @@
   function check(note) {
     show("w-loading");
     call("GET").then(function (r) {
-      if (r.state === "member") return toApp();
+      if (r.state === "member") {
+        if (!replacing) return toApp();
+        if (!r.replaceable) return show("w-keep");
+        swapName = r.venueName || "your venue";
+        return openJoin();
+      }
       if (r.state === "pending") {
         $("w-pending-venue").textContent = r.venueName || "a venue";
         return show("w-pending");
@@ -129,25 +138,32 @@
   /* ----- join an existing venue with a code ----- */
   function joinFail(msg) { var e = $("w-join-error"); e.textContent = msg; e.hidden = !msg; }
 
-  $("w-to-join").addEventListener("click", function () {
+  function openJoin() {
     var u = netlifyIdentity.currentUser() || {};
     $("w-join-email").textContent = u.email || "";
     var typed = $("w-join-name");
     if (!typed.value) typed.value = (u.user_metadata && u.user_metadata.full_name) || "";
     joinFail("");
+    $("w-replace-note").hidden = !swapName;
+    $("w-replace-name").textContent = swapName;
     show("w-join");
     $("w-code").focus();
+  }
+  $("w-to-join").addEventListener("click", function () { swapName = ""; openJoin(); });
+  $("w-join-back").addEventListener("click", function () {
+    if (swapName) return toApp(); // keep the venue they made
+    show("w-create"); $("w-name").focus();
   });
-  $("w-join-back").addEventListener("click", function () { show("w-create"); $("w-name").focus(); });
 
   $("w-join-form").addEventListener("submit", function (e) {
     e.preventDefault();
     joinFail("");
     var btn = $("w-join-submit");
     btn.disabled = true; btn.textContent = "Sending…";
-    call("POST", { action: "join", code: $("w-code").value, name: $("w-join-name").value }).then(function () {
+    call("POST", { action: "join", code: $("w-code").value, name: $("w-join-name").value, replaceVenue: swapName ? true : undefined }).then(function () {
       btn.disabled = false; btn.textContent = "Ask to join";
       $("w-code").value = "";
+      swapName = ""; replacing = false; // the old venue is gone: this is an ordinary waiting screen now
       check(); // shows the waiting screen
     }).catch(function (err) {
       btn.disabled = false; btn.textContent = "Ask to join";

@@ -59,7 +59,7 @@ const crewPreset = { roleId: "role-crew", permInventory: "view", permCallList: "
 
 const makeCode = (who, body) => call(joinCodes, who || alice, "POST", body || crewPreset);
 const join = (who, code, extra) => call(onboarding, who || sam, "POST", { action: "join", code, ...(extra || {}) });
-const pendingFor = (venue) => db.tables.join_requests.filter((r) => r.venue_id === venue && r.status === "pending");
+const pendingFor = (venue) => (db.tables.join_requests || []).filter((r) => r.venue_id === venue && r.status === "pending");
 
 test.beforeEach(() => { db = makeFake(seed()); });
 
@@ -296,7 +296,7 @@ test("approving adds exactly the preset to this venue's roster, and their next s
   assert.equal(boot.status, 200);
   assert.equal(boot.json.me.venue_id, A);
   assert.deepEqual(boot.json.items.map((i) => i.name), ["A lamp"], "sees only Venue A's data");
-  assert.deepEqual((await call(onboarding, sam, "GET")).json, { state: "member", venueName: "Venue A" });
+  assert.deepEqual((await call(onboarding, sam, "GET")).json, { state: "member", venueName: "Venue A", replaceable: false });
   assert.equal((await call(joinCodes, sam, "GET")).status, 403, "view access doesn't make them an admin");
 });
 
@@ -450,4 +450,151 @@ test("the Join requests page is only offered to people who can edit Employees", 
   assert.match(ui, /href: "requests\.html"[^}]*area: "employees", need: "edit"/);
   const page = fs.readFileSync(path.join(__dirname, "..", "requests.html"), "utf8");
   assert.match(page, /data-area="employees" data-need="edit"/);
+});
+
+/* ---------- replacing a venue made by mistake ---------- */
+
+const oops = ctx("oops@new.test");
+const venueOf = (email) => db.tables.venues.find((v) => v.owner_email === email);
+const swapJoin = (who, code) => call(onboarding, who, "POST", { action: "join", code, replaceVenue: true });
+async function accidentalVenue() {
+  const made = await call(onboarding, oops, "POST", { name: "Oops Theater", subtitle: "x" });
+  assert.equal(made.status, 200);
+  return made.json.venueId;
+}
+
+test("a venue made by mistake is reported as replaceable; one with data or people is not", async () => {
+  const id = await accidentalVenue();
+  assert.deepEqual((await call(onboarding, oops, "GET")).json, { state: "member", venueName: "Oops Theater", replaceable: true });
+  db.tables.items.push({ venue_id: id, id: "LX-0001", name: "Lamp", status: "ok", location: "x", restricted_to: [], holder: null });
+  assert.equal((await call(onboarding, oops, "GET")).json.replaceable, false);
+});
+
+test("joining with a code can replace the venue you just created by mistake", async () => {
+  const id = await accidentalVenue();
+  const { code } = (await makeCode()).json;
+  const r = await swapJoin(oops, code.code);
+  assert.equal(r.status, 200);
+  assert.equal(r.json.venueName, "Venue A");
+  assert.equal(db.tables.venues.some((v) => v.id === id), false, "the mistaken venue is gone");
+  assert.equal(db.tables.employees.some((e) => e.venue_id === id), false);
+  assert.equal(db.tables.venues.length, 2, "the other venues are untouched");
+  assert.equal(db.tables.employees.length, 3, "only the mistaken roster row was removed");
+  assert.deepEqual((await call(onboarding, oops, "GET")).json, { state: "pending", venueName: "Venue A" });
+  assert.equal(pendingFor(A)[0].email, "oops@new.test");
+
+  await call(joinRequests, alice, "POST", { id: pendingFor(A)[0].id, action: "approve" });
+  const boot = await call(bootstrap, oops, "GET");
+  assert.equal(boot.status, 200);
+  assert.equal(boot.json.me.venue_id, A);
+});
+
+test("their old venue's own codes go with it, and nobody can still use them", async () => {
+  await accidentalVenue();
+  const own = (await makeCode(oops, { permInventory: "view" })).json.code;
+  const { code } = (await makeCode()).json;
+  assert.equal((await swapJoin(oops, code.code)).status, 200);
+  assert.equal(db.tables.join_codes.some((c) => c.venue_id === venueOf("oops@new.test") ), false);
+  assert.equal((await join(sam, own.code)).status, 400);
+});
+
+test("without replaceVenue: true nothing is deleted", async () => {
+  const id = await accidentalVenue();
+  const { code } = (await makeCode()).json;
+  const r = await call(onboarding, oops, "POST", { action: "join", code: code.code });
+  assert.equal(r.status, 409);
+  assert.ok(db.tables.venues.some((v) => v.id === id));
+  assert.equal(pendingFor(A).length, 0);
+});
+
+test("a bad, expired or used-up code never costs you your venue", async () => {
+  const id = await accidentalVenue();
+  const expired = (await makeCode()).json.code;
+  db.tables.join_codes.find((c) => c.id === expired.id).expires_at = new Date(Date.now() - 1000).toISOString();
+  const one = (await makeCode(alice, { ...crewPreset, maxUses: 1 })).json.code;
+  await join(ctx("first@new.test"), one.code);
+  for (const c of ["ZZZZ-ZZZZ", "", expired.code, one.code]) {
+    assert.equal((await swapJoin(oops, c)).status, 400, String(c));
+  }
+  assert.ok(db.tables.venues.some((v) => v.id === id));
+  assert.ok(db.tables.employees.some((e) => e.venue_id === id && e.email === "oops@new.test"));
+});
+
+test("a venue with data, other people, waiting requests, or that you don't own is never replaced", async () => {
+  const { code } = (await makeCode()).json;
+
+  // someone else's venue (a member who isn't the owner) - and Alice owns Venue A, which has data
+  assert.equal((await swapJoin(viewer, code.code)).status, 409, "member, not owner");
+  assert.equal((await swapJoin(alice, code.code)).status, 409, "owner, but the venue has data and people");
+  assert.equal((await swapJoin(bob, code.code)).status, 409);
+  assert.equal(db.tables.venues.length, 2);
+
+  // items
+  let id = await accidentalVenue();
+  db.tables.items.push({ venue_id: id, id: "LX-0001", name: "Lamp", status: "ok", location: "x", restricted_to: [], holder: null });
+  assert.equal((await swapJoin(oops, code.code)).status, 409, "has an item");
+  db.tables.items = db.tables.items.filter((i) => i.venue_id !== id);
+
+  // a role
+  db.tables.roles.push({ venue_id: id, id: "role-x", name: "Crew" });
+  assert.equal((await swapJoin(oops, code.code)).status, 409, "has a role");
+  db.tables.roles = db.tables.roles.filter((r) => r.venue_id !== id);
+
+  // another person on the roster
+  db.tables.employees.push({ venue_id: id, id: "ID-1000", name: "Pal", email: "pal@new.test", ...none });
+  assert.equal((await swapJoin(oops, code.code)).status, 409, "has another person");
+  db.tables.employees = db.tables.employees.filter((e) => e.email !== "pal@new.test");
+
+  // someone waiting to join it
+  const mine = (await makeCode(oops, { permInventory: "view" })).json.code;
+  await join(sam, mine.code);
+  assert.equal((await swapJoin(oops, code.code)).status, 409, "someone is waiting");
+
+  assert.ok(db.tables.venues.some((v) => v.id === id), "still here after every refusal");
+  assert.equal(pendingFor(A).length, 0, "no request was left behind in Venue A");
+});
+
+test("if the venue can't be removed, nothing changes: roster row back, request withdrawn", async () => {
+  const id = await accidentalVenue();
+  const { code } = (await makeCode()).json;
+  const real = db.from;
+  db.from = (t) => {
+    const api = real(t);
+    if (t !== "venues") return api;
+    return Object.assign({}, api, { delete: () => ({ eq: () => ({ eq: () => Promise.resolve({ error: { code: "XX000", message: "boom" } }) }) }) });
+  };
+  const r = await swapJoin(oops, code.code);
+  db.from = real;
+  assert.equal(r.status, 500);
+  assert.ok(db.tables.venues.some((v) => v.id === id));
+  assert.ok(db.tables.employees.some((e) => e.venue_id === id && e.email === "oops@new.test"), "roster row restored");
+  assert.equal(pendingFor(A).length, 0, "request withdrawn");
+  assert.deepEqual((await call(onboarding, oops, "GET")).json.state, "member");
+});
+
+test("if they are declined after swapping, they can create a venue again", async () => {
+  await accidentalVenue();
+  const { code } = (await makeCode()).json;
+  await swapJoin(oops, code.code);
+  await call(joinRequests, alice, "POST", { id: pendingFor(A)[0].id, action: "decline" });
+  assert.deepEqual((await call(onboarding, oops, "GET")).json, { state: "needs_venue" });
+  assert.equal((await call(onboarding, oops, "POST", { name: "Second try" })).status, 200);
+});
+
+test("the welcome page and Settings carry what the swap needs", () => {
+  const fs = require("fs");
+  const root = path.join(__dirname, "..");
+  assert.match(fs.readFileSync(path.join(root, "settings.html"), "utf8"), /welcome\.html\?join=1/);
+  assert.match(fs.readFileSync(path.join(root, "js", "welcome.js"), "utf8"), /replaceVenue/);
+});
+
+test("an empty venue you don't own (you were added to it) is never deleted by your joining elsewhere", async () => {
+  db.tables.venues.push({ id: "venue-c", name: "Empty C", subtitle: "", logo: null, owner_email: "boss@c.test", deleted_at: null, created_at: "2026-03-01" });
+  db.tables.employees.push({ venue_id: "venue-c", id: "ID-1000", name: "Temp", email: "temp@c.test", ...none });
+  const { code } = (await makeCode()).json;
+  const r = await swapJoin(ctx("temp@c.test"), code.code);
+  assert.equal(r.status, 409);
+  assert.ok(db.tables.venues.some((v) => v.id === "venue-c"));
+  assert.ok(db.tables.employees.some((e) => e.email === "temp@c.test" && e.venue_id === "venue-c"));
+  assert.equal(pendingFor(A).length, 0);
 });

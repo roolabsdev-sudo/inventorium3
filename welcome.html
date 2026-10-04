@@ -56,6 +56,10 @@
       <div id="w-join" hidden>
         <h1>Join a venue</h1>
         <p class="dim login-sub">You're signed in as <strong id="w-join-email"></strong>. Enter the code your venue's admin gave you. They'll approve your request, and then you're in.</p>
+        <p id="w-replace-note" role="note" style="margin:0 0 14px;padding:10px 12px;border:1px solid var(--warn);border-radius:6px;font-size:.85rem;text-align:left;" hidden>
+          <strong>This replaces your new venue.</strong> &ldquo;<span id="w-replace-name"></span>&rdquo; will be deleted. That's allowed because it's still empty: just you, nothing added yet.
+          Once your request is sent, you'll be waiting for approval to join the other venue.
+        </p>
         <form id="w-join-form" class="branding-form" autocomplete="off" style="text-align:left;">
           <div class="form-grid">
             <label class="form-field form-field-wide">
@@ -71,6 +75,13 @@
           <button type="submit" class="btn btn-primary login-btn" id="w-join-submit" style="margin-top:18px;">Ask to join</button>
         </form>
         <p style="margin-top:12px;"><button type="button" class="btn btn-ghost" id="w-join-back" style="font-size:.85rem;">&larr; Create a venue instead</button></p>
+      </div>
+
+      <!-- Tried to replace a venue that already has people or data in it -->
+      <div id="w-keep" hidden>
+        <h1>Your venue stays</h1>
+        <p class="dim login-sub" id="w-keep-note">Your venue already has people or data in it, so it can't be replaced with a code.</p>
+        <a class="btn btn-primary login-btn" href="index.html">Back to the app</a>
       </div>
 
       <!-- Asked to join a venue, waiting for an admin to approve -->

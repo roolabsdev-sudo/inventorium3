@@ -71,7 +71,7 @@ test("ADMIN_EMAILS no longer grants anything", async () => {
 });
 
 test("onboarding GET: member, needs_venue, pending", async () => {
-  assert.deepEqual(await call(onboarding, ctx("alice@a.test"), "GET").then((r) => r.json), { state: "member", venueName: "Venue A" });
+  assert.deepEqual(await call(onboarding, ctx("alice@a.test"), "GET").then((r) => r.json), { state: "member", venueName: "Venue A", replaceable: false });
   assert.deepEqual(await call(onboarding, ctx("stranger@new.test"), "GET").then((r) => r.json), { state: "needs_venue" });
   db.tables.join_requests = [{ id: 1, venue_id: A, email: "pat@new.test", status: "pending" }];
   assert.deepEqual(await call(onboarding, ctx("pat@new.test"), "GET").then((r) => r.json), { state: "pending", venueName: "Venue A" });

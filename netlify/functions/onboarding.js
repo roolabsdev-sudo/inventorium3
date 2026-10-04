@@ -5,12 +5,16 @@
  *            "member"        their email is on a venue's roster (they can use the app)
  *            "pending"       they asked to join a venue and are waiting for approval
  *            "needs_venue"   neither: they can create their own venue or join one with a code
- *          plus { venueName } when they are a member or pending.
+ *          plus { venueName } when they are a member or pending, and { replaceable } for a member: true
+ *          while the venue they own is still untouched, so joining another venue could replace it.
  *
  * POST { action: "join", code, name? }  -> ask to join the venue that code belongs to. Creates a
  *          pending request carrying the role and access the code promises; an admin there approves
  *          it on the Join requests page (piece 4). A bad, expired, turned-off or used-up code all
  *          get the same answer, so codes can't be probed. Returns { ok: true, venueName }.
+ *          Add replaceVenue: true to swap the venue you just created by mistake for this one: your own
+ *          venue is deleted, but ONLY if it is still untouched (see canReplaceVenue). Anything else is
+ *          refused, so a real venue can never be wiped this way.
  * POST { action: "cancel" }             -> withdraw your own waiting request.
  * POST { name, subtitle?, logo? }       -> create a venue; the caller becomes its owner and admin.
  *          Refused (409) if the caller is already on a roster, is waiting on a join request, or
@@ -22,7 +26,7 @@
  * ever left owning an empty venue they can't get into.
  */
 const crypto = require("crypto");
-const { getSupabaseClient, getPendingRequest, getVenue, jsonResponse } = require("./_shared/auth");
+const { getSupabaseClient, getPendingRequest, getVenue, venueDb, jsonResponse } = require("./_shared/auth");
 const { CODE_LEN, normalizeCode, countUses } = require("./_shared/joincodes");
 
 const BAD_CODE = "That code isn't valid. It may have expired, been turned off, or been used up. Ask your admin for a new one.";
@@ -38,7 +42,57 @@ async function lookup(supabase, email) {
   return { ownedVenue: owned.data && owned.data[0] || null, pending: await getPendingRequest(supabase, email) };
 }
 
-async function joinWithCode(supabase, user, email, b) {
+/**
+ * Can this member throw away the venue they are on in order to join another?
+ * Only when it is plainly a venue created by mistake: they own it, they are its only person, it holds
+ * no inventory, shows, roles, locations, call lists or history, and nobody is waiting to join it.
+ * Returns { ok: true, venue } or { ok: false, reason }.
+ */
+async function canReplaceVenue(supabase, email, employee) {
+  const venue = await getVenue(supabase, employee.venue_id);
+  if (!venue || venue.deleted_at || String(venue.owner_email || "").toLowerCase() !== email) {
+    return { ok: false, reason: "You can only replace a venue you own." };
+  }
+  const db = venueDb(supabase, venue.id);
+  const count = async function (table) {
+    const r = await db.from(table).select("id", { count: "exact", head: true });
+    return r.error ? null : (r.count || 0);
+  };
+  const people = await count("employees");
+  if (people === null) return { ok: false, reason: "Couldn't check your venue. Try again." };
+  if (people > 1) return { ok: false, reason: "Your venue already has other people in it, so it can't be replaced automatically." };
+  for (const table of ["items", "shows", "show_roles", "call_list", "roles", "locations", "activity_log"]) {
+    const n = await count(table);
+    if (n === null) return { ok: false, reason: "Couldn't check your venue. Try again." };
+    if (n > 0) return { ok: false, reason: "Your venue already has data in it, so it can't be replaced automatically." };
+  }
+  const waiting = await db.from("join_requests").select("id", { count: "exact", head: true }).eq("status", "pending");
+  if (waiting.error) return { ok: false, reason: "Couldn't check your venue. Try again." };
+  if (waiting.count > 0) return { ok: false, reason: "Someone is waiting to join your venue, so it can't be replaced automatically." };
+  return { ok: true, venue: venue };
+}
+
+/**
+ * Removes the venue canReplaceVenue approved, together with its one roster row and any codes.
+ * If it can't finish, it puts back what it removed and reports failure, so nobody is left half-deleted.
+ */
+async function removeOwnVenue(supabase, venue, email) {
+  const db = venueDb(supabase, venue.id);
+  const mine = await db.from("employees").select("*").eq("email", email).maybeSingle();
+  if (mine.error || !mine.data) return false;
+  const gone = await db.from("employees").delete().eq("email", email);
+  if (gone.error) return false;
+  await db.from("join_codes").delete();
+  await db.from("join_requests").delete();
+  const del = await supabase.from("venues").delete().eq("id", venue.id).eq("owner_email", email);
+  if (del.error) {
+    await db.from("employees").insert(mine.data); // best effort: put the roster row back
+    return false;
+  }
+  return true;
+}
+
+async function joinWithCode(supabase, user, email, b, replace) {
   const norm = normalizeCode(b.code);
   if (norm.length !== CODE_LEN) return jsonResponse(400, { error: BAD_CODE });
 
@@ -79,6 +133,14 @@ async function joinWithCode(supabase, user, email, b) {
       return after === null ? jsonResponse(500, { error: "Couldn't send your request. Try again." }) : jsonResponse(400, { error: BAD_CODE });
     }
   }
+
+  if (replace) {
+    // The request is safely made and the code is good: now (and only now) let go of the venue made by mistake.
+    if (!(await removeOwnVenue(supabase, replace, email))) {
+      await supabase.from("join_requests").delete().eq("id", made.data.id);
+      return jsonResponse(500, { error: "Couldn't replace your venue, so nothing was changed. Try again." });
+    }
+  }
   return jsonResponse(200, { ok: true, venueName: venue.name });
 }
 
@@ -96,7 +158,8 @@ exports.handler = async function (event, context) {
   if (event.httpMethod === "GET") {
     if (found.employee) {
       const venue = await getVenue(supabase, found.employee.venue_id);
-      return jsonResponse(200, { state: "member", venueName: venue ? venue.name : "" });
+      const swap = await canReplaceVenue(supabase, email, found.employee);
+      return jsonResponse(200, { state: "member", venueName: venue ? venue.name : "", replaceable: swap.ok });
     }
     if (found.pending) {
       const venue = await getVenue(supabase, found.pending.venue_id);
@@ -114,6 +177,12 @@ exports.handler = async function (event, context) {
     // Only ever this caller's own request: matched on their verified email, never on anything they send.
     await supabase.from("join_requests").update({ status: "cancelled", decided_at: new Date().toISOString() }).eq("email", email).eq("status", "pending");
     return jsonResponse(200, { ok: true });
+  }
+
+  if (b.action === "join" && b.replaceVenue === true && found.employee) {
+    const swap = await canReplaceVenue(supabase, email, found.employee);
+    if (!swap.ok) return jsonResponse(409, { error: swap.reason });
+    return joinWithCode(supabase, user, email, b, swap.venue);
   }
 
   if (found.employee) return jsonResponse(409, { error: "You already belong to a venue." });

@@ -87,3 +87,15 @@ requests count towards the limit; declined and cancelled ones give the place bac
 can't use a code; a person can wait on only one venue; and a wrong, expired, turned-off or used-up code all get
 the same message. Codes are unique across venues because people type one without naming the venue.
 Turning a code off stops new use but leaves requests already made for you to decide.
+
+#### Replacing a venue made by mistake
+
+Someone who created a venue by accident can join the right one instead. In **Settings**, under *Created this
+venue by mistake?*, they choose **Join a venue with a code**, enter the code and their name, and send the request.
+Their new venue is deleted and they wait for approval like anyone else.
+
+This is allowed only while the venue is plainly untouched. The server refuses (and deletes nothing) unless the person
+owns it, is its only member, it has no items, shows, roles, locations, call lists or history, and nobody is waiting
+to join it. A bad, expired or used-up code never costs them the venue: the venue is removed only after the request
+has been safely made, and if removal fails the roster row is restored and the request withdrawn. If they are later
+declined, they can create a venue again. Venues that have data are deleted through piece 5, not this way.
