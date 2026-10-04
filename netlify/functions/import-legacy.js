@@ -7,16 +7,16 @@
  * Imported employees get NO login and NO permissions until you set them on the Employees page.
  */
 
-const { getSupabaseClient, getCallerEmployee, hasPermission, jsonResponse } = require("./_shared/auth");
+const { getSupabaseClient, getCallerEmployee, hasPermission, venueDb, jsonResponse } = require("./_shared/auth");
 
 function uid(prefix) {
   return prefix + "-" + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 5);
 }
 
-async function insertIgnore(supabase, table, rows, onConflict) {
+async function insertIgnore(db, table, rows, onConflict) {
   if (!rows.length) return 0;
   for (let i = 0; i < rows.length; i += 200) {
-    const { error } = await supabase.from(table).upsert(rows.slice(i, i + 200), { onConflict: onConflict || "id", ignoreDuplicates: true });
+    const { error } = await db.from(table).upsert(rows.slice(i, i + 200), { onConflict: onConflict || "id", ignoreDuplicates: true });
     if (error) throw new Error(table + ": " + error.message);
   }
   return rows.length;
@@ -33,6 +33,8 @@ exports.handler = async function (event, context) {
     return hasPermission(employee, k, "edit");
   });
   if (!ok) return jsonResponse(403, { error: "Importing needs edit access to every page (an admin account)." });
+
+  const db = venueDb(supabase, employee.venue_id);
 
   let d;
   try { d = JSON.parse(event.body || "{}"); } catch (e) { return jsonResponse(400, { error: "Invalid JSON body." }); }
@@ -82,18 +84,18 @@ exports.handler = async function (event, context) {
     });
 
     // Locations are unique by name; skip ones that already exist.
-    const { data: haveLocs } = await supabase.from("locations").select("name");
+    const { data: haveLocs } = await db.from("locations").select("name");
     const haveNames = {}; (haveLocs || []).forEach(function (l) { haveNames[l.name.toLowerCase()] = true; });
     const newLocs = locations.filter(function (l) { return l.name && !haveNames[l.name.toLowerCase()]; });
 
     const counts = {};
-    counts.roles = await insertIgnore(supabase, "roles", roles);
-    counts.locations = await insertIgnore(supabase, "locations", newLocs);
-    counts.employees = await insertIgnore(supabase, "employees", empRows);
-    counts.showRoles = await insertIgnore(supabase, "show_roles", showRoles);
-    counts.shows = await insertIgnore(supabase, "shows", shows);
-    counts.items = await insertIgnore(supabase, "items", itemRows);
-    counts.callEntries = await insertIgnore(supabase, "call_list", callRows, "show_id,emp_id");
+    counts.roles = await insertIgnore(db, "roles", roles);
+    counts.locations = await insertIgnore(db, "locations", newLocs);
+    counts.employees = await insertIgnore(db, "employees", empRows);
+    counts.showRoles = await insertIgnore(db, "show_roles", showRoles);
+    counts.shows = await insertIgnore(db, "shows", shows);
+    counts.items = await insertIgnore(db, "items", itemRows);
+    counts.callEntries = await insertIgnore(db, "call_list", callRows, "show_id,emp_id");
     return jsonResponse(200, { ok: true, counts: counts });
   } catch (e) {
     return jsonResponse(500, { error: e.message });

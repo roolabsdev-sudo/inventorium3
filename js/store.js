@@ -160,6 +160,7 @@
     cache.shows = (d.shows || []).map(plain);
     cache.callEntries = (d.callList || []).map(entryFromRow);
     cache.log = (d.log || []).map(logFromRow);
+    if (d.branding && global.Branding) global.Branding.set(d.branding); // this venue's name and logo
   }
 
   function replaceIn(list, obj) {

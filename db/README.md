@@ -34,3 +34,21 @@ Sign in as an admin, open **Settings → Branding**, and enter your venue name, 
 - Every request is re-checked on the server, so view-only users cannot change data even by tampering with the page.
 - Rotate the service-role key in Supabase if it is ever exposed, then update the Netlify variable.
 - Local testing: `npm install`, then `npx netlify dev` (needs the same environment variables in a `.env` file, which is git-ignored).
+
+## Upgrading an existing database to multi-venue (piece 1)
+Run `db/venues-groundwork.sql` once in the Supabase SQL editor. It adds a `venues` table, tags all existing data as Venue #1, and needs no redeploy. The last result table should show matching `total` and `in_venue_1` numbers on every row. To undo it, run `db/venues-rollback.sql`. (Fresh installs get all of this from `db/schema.sql`.)
+
+## Multi-venue (in progress)
+
+Run in this order, in the Supabase SQL editor:
+
+1. `venues-groundwork.sql` — adds the `venues` table and `venue_id` columns. (Piece 1)
+2. `venues-ids.sql` — makes ids unique per venue. Run it, then deploy the piece-2 code
+   straight away (the site errors briefly in between).
+3. `venues-drop-default.sql` — only after the piece-2 code is live and checked.
+
+Undo, in reverse: `venues-ids-rollback.sql`, then `venues-rollback.sql`.
+
+Every Netlify Function reaches data through `venueDb()` in `netlify/functions/_shared/auth.js`,
+which pins each query to the caller's venue. Run `npm test` to check that one venue can't
+read or change another's data.

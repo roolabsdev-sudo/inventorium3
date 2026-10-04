@@ -2,11 +2,14 @@
   "name": "inventorium",
   "version": "2.0.0",
   "private": true,
-  "description": "Inventorium — static frontend + Netlify Functions + Supabase Postgres, login via Netlify Identity.",
+  "description": "Inventorium \u2014 static frontend + Netlify Functions + Supabase Postgres, login via Netlify Identity.",
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0"
   },
   "engines": {
     "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
   }
 }

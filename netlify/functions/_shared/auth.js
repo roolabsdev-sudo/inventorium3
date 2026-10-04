@@ -16,7 +16,6 @@
  *    rejected for anything but the most public reads, if any.
  */
 
-const { createClient } = require("@supabase/supabase-js");
 
 function getSupabaseClient() {
   const url = process.env.SUPABASE_URL;
@@ -27,6 +26,7 @@ function getSupabaseClient() {
       "Set these in Netlify (Site settings > Environment variables) — see /db/README.md."
     );
   }
+  const { createClient } = require("@supabase/supabase-js"); // loaded here so tests can run without it
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
@@ -64,7 +64,12 @@ async function getCallerEmployee(context, supabase) {
     }
     if (allowBootstrap) {
       const name = (identityUser.user_metadata && identityUser.user_metadata.full_name) || email.split("@")[0];
+      const firstVenue = await supabase.from("venues").select("id").is("deleted_at", null).order("created_at").limit(1).maybeSingle();
+      if (firstVenue.error || !firstVenue.data) {
+        return { employee: null, error: { statusCode: 500, message: "No venue exists yet. Run db/venues-groundwork.sql." } };
+      }
       const row = {
+        venue_id: firstVenue.data.id,
         id: "ADMIN-1", name: name, email: email, active: true,
         perm_inventory: "edit", perm_call_list: "edit", perm_employees: "edit", perm_settings: "edit"
       };
@@ -88,6 +93,9 @@ async function getCallerEmployee(context, supabase) {
   }
   if (!data.active) {
     return { employee: null, error: { statusCode: 403, message: "Your employee record is inactive." } };
+  }
+  if (!data.venue_id) {
+    return { employee: null, error: { statusCode: 500, message: "Your account isn't attached to a venue." } };
   }
 
   return { employee: data, error: null };
@@ -164,6 +172,76 @@ async function findIdentityUserByEmail(context, email) {
   return users.find(function (u) { return String(u.email).toLowerCase() === email.toLowerCase(); }) || null;
 }
 
+
+/**
+ * venueDb(supabase, venueId) — THE way functions touch data.
+ *
+ * It mirrors supabase.from(table), but every query is pinned to one venue:
+ *   select / update / delete  ->  automatically add  .eq("venue_id", venueId)
+ *   insert / upsert           ->  stamp venue_id on every row (any venue_id the
+ *                                 caller sent is overwritten) and make upsert match
+ *                                 on (venue_id, <your onConflict>), so an id that
+ *                                 exists in another venue can never be overwritten.
+ *
+ * Usage:   const db = venueDb(supabase, me.venue_id);
+ *          db.from("items").select("*").eq("id", id).maybeSingle();
+ *
+ * Rule for this codebase: after the caller is resolved, functions use `db`, never
+ * the raw `supabase` client, for data tables. The only unscoped reads allowed are
+ * the explicit helpers in this file (emailTaken, venue lookups).
+ */
+function venueDb(supabase, venueId) {
+  if (!venueId) throw new Error("venueDb needs a venue id.");
+  function tag(rows) {
+    const one = function (r) { return Object.assign({}, r, { venue_id: venueId }); };
+    return Array.isArray(rows) ? rows.map(one) : one(rows);
+  }
+  return {
+    venueId: venueId,
+    from: function (table) {
+      return {
+        select: function (columns, opts) {
+          return supabase.from(table).select(columns || "*", opts).eq("venue_id", venueId);
+        },
+        insert: function (rows) {
+          return supabase.from(table).insert(tag(rows));
+        },
+        upsert: function (rows, opts) {
+          const o = Object.assign({}, opts);
+          o.onConflict = "venue_id," + (o.onConflict || "id");
+          return supabase.from(table).upsert(tag(rows), o);
+        },
+        update: function (patch) {
+          return supabase.from(table).update(patch).eq("venue_id", venueId);
+        },
+        delete: function () {
+          return supabase.from(table).delete().eq("venue_id", venueId);
+        }
+      };
+    }
+  };
+}
+
+/**
+ * Emails are unique across ALL venues (one venue per email), so this check is
+ * deliberately unscoped. It only reports the person's name when they are in the
+ * caller's own venue, so one venue can't learn who is on another venue's roster.
+ * Returns { taken, sameVenueName }.
+ */
+async function emailTaken(supabase, email, venueId, exceptId) {
+  let q = supabase.from("employees").select("id,name,venue_id").eq("email", email);
+  const { data } = await q;
+  const clash = (data || []).find(function (r) { return !(r.venue_id === venueId && r.id === exceptId); });
+  if (!clash) return { taken: false, sameVenueName: null };
+  return { taken: true, sameVenueName: clash.venue_id === venueId ? clash.name : null };
+}
+
+/** The caller's venue row (name, subtitle, logo, owner...). */
+async function getVenue(supabase, venueId) {
+  const { data } = await supabase.from("venues").select("*").eq("id", venueId).maybeSingle();
+  return data || null;
+}
+
 function jsonResponse(statusCode, body) {
   return {
     statusCode: statusCode,
@@ -179,5 +257,8 @@ module.exports = {
   requirePermission: requirePermission,
   identityAdmin: identityAdmin,
   findIdentityUserByEmail: findIdentityUserByEmail,
+  venueDb: venueDb,
+  emailTaken: emailTaken,
+  getVenue: getVenue,
   jsonResponse: jsonResponse
 };

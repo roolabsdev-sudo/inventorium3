@@ -14,16 +14,16 @@
  * POST ?action=note       {itemId, note}           -> maintenance note
  */
 
-const { getSupabaseClient, requirePermission, jsonResponse } = require("./_shared/auth");
+const { getSupabaseClient, requirePermission, venueDb, jsonResponse } = require("./_shared/auth");
 
 function uid(prefix) {
   return prefix + "-" + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 5);
 }
 
-async function addLog(supabase, entry) {
+async function addLog(db, entry) {
   entry.id = uid("log");
   entry.ts = new Date().toISOString();
-  await supabase.from("activity_log").insert(entry);
+  await db.from("activity_log").insert(entry);
 }
 
 function parseBody(event) {
@@ -52,25 +52,27 @@ exports.handler = async function (event, context) {
   const action = qs.action;
 
   if (event.httpMethod === "GET") {
-    const { error } = await requirePermission(context, supabase, "perm_inventory", "view");
+    const { employee: me, error } = await requirePermission(context, supabase, "perm_inventory", "view");
     if (error) return jsonResponse(error.statusCode, { error: error.message });
-    const { data, error: dbError } = await supabase.from("items").select("*").order("name");
+    const db = venueDb(supabase, me.venue_id);
+    const { data, error: dbError } = await db.from("items").select("*").order("name");
     if (dbError) return jsonResponse(500, { error: dbError.message });
     return jsonResponse(200, { items: data });
   }
 
   if (event.httpMethod === "DELETE") {
-    const { error } = await requirePermission(context, supabase, "perm_inventory", "edit");
+    const { employee: me, error } = await requirePermission(context, supabase, "perm_inventory", "edit");
     if (error) return jsonResponse(error.statusCode, { error: error.message });
+    const db = venueDb(supabase, me.venue_id);
     if (!qs.id) return jsonResponse(400, { error: "id query parameter is required." });
 
-    const { data: item } = await supabase.from("items").select("*").eq("id", qs.id).maybeSingle();
+    const { data: item } = await db.from("items").select("*").eq("id", qs.id).maybeSingle();
     if (!item) return jsonResponse(404, { error: "Item not found." });
     if (item.status === "out") return jsonResponse(409, { error: "Check the item in before deleting it." });
 
-    const { error: dbError } = await supabase.from("items").delete().eq("id", qs.id);
+    const { error: dbError } = await db.from("items").delete().eq("id", qs.id);
     if (dbError) return jsonResponse(500, { error: dbError.message });
-    await addLog(supabase, { type: "delete", item_id: qs.id, item_name: item.name });
+    await addLog(db, { type: "delete", item_id: qs.id, item_name: item.name });
     return jsonResponse(200, { ok: true });
   }
 
@@ -80,6 +82,7 @@ exports.handler = async function (event, context) {
 
   const { employee, error: permError } = await requirePermission(context, supabase, "perm_inventory", "edit");
   if (permError) return jsonResponse(permError.statusCode, { error: permError.message });
+  const db = venueDb(supabase, employee.venue_id);
 
   const parsed = parseBody(event);
   if (parsed.error) return parsed.error;
@@ -87,11 +90,11 @@ exports.handler = async function (event, context) {
 
   /* ----- actions ----- */
   if (action) {
-    const { data: item } = await supabase.from("items").select("*").eq("id", body.itemId).maybeSingle();
+    const { data: item } = await db.from("items").select("*").eq("id", body.itemId).maybeSingle();
     if (!item) return jsonResponse(404, { error: "Item not found." });
 
     if (action === "checkout") {
-      const { data: holder } = await supabase.from("employees").select("*").eq("id", body.empId).maybeSingle();
+      const { data: holder } = await db.from("employees").select("*").eq("id", body.empId).maybeSingle();
       if (!holder) return jsonResponse(404, { error: "Employee not found." });
       if (!holder.active) return jsonResponse(409, { error: holder.name + " is inactive." });
       if (item.status === "out") return jsonResponse(409, { error: "Item is already checked out." });
@@ -101,26 +104,26 @@ exports.handler = async function (event, context) {
       if (!roleAllowed(item, holder)) {
         return jsonResponse(403, { error: "This item is restricted. " + holder.name + " isn't cleared for it.", reason: "restricted" });
       }
-      const { data: updated, error: dbError } = await supabase
+      const { data: updated, error: dbError } = await db
         .from("items")
         .update({ status: "out", holder: holder.id, due: null, updated_at: new Date().toISOString() })
         .eq("id", item.id).select().single();
       if (dbError) return jsonResponse(500, { error: dbError.message });
-      await addLog(supabase, { type: "out", item_id: item.id, item_name: item.name, emp_id: holder.id, emp_name: holder.name });
+      await addLog(db, { type: "out", item_id: item.id, item_name: item.name, emp_id: holder.id, emp_name: holder.name });
       return jsonResponse(200, { item: updated });
     }
 
     if (action === "checkin") {
       if (item.status !== "out") return jsonResponse(409, { error: "Item is not checked out." });
       const { data: prev } = item.holder
-        ? await supabase.from("employees").select("*").eq("id", item.holder).maybeSingle()
+        ? await db.from("employees").select("*").eq("id", item.holder).maybeSingle()
         : { data: null };
-      const { data: updated, error: dbError } = await supabase
+      const { data: updated, error: dbError } = await db
         .from("items")
         .update({ status: "ok", holder: null, due: null, updated_at: new Date().toISOString() })
         .eq("id", item.id).select().single();
       if (dbError) return jsonResponse(500, { error: dbError.message });
-      await addLog(supabase, {
+      await addLog(db, {
         type: "in", item_id: item.id, item_name: item.name,
         emp_id: prev ? prev.id : null, emp_name: prev ? prev.name : "Unknown"
       });
@@ -131,13 +134,13 @@ exports.handler = async function (event, context) {
       if (["ok", "maint", "fault"].indexOf(body.status) === -1) return jsonResponse(400, { error: "Invalid status." });
       if (item.status === "out") return jsonResponse(409, { error: "Check the item in first." });
       const labels = { ok: "Cleared — back in service", maint: "Marked in maintenance", fault: "Flagged as damaged" };
-      const { data: updated, error: dbError } = await supabase
+      const { data: updated, error: dbError } = await db
         .from("items")
         .update({ status: body.status, holder: null, updated_at: new Date().toISOString() })
         .eq("id", item.id).select().single();
       if (dbError) return jsonResponse(500, { error: dbError.message });
       if (item.status !== body.status) {
-        await addLog(supabase, {
+        await addLog(db, {
           type: "status", item_id: item.id, item_name: item.name,
           note: labels[body.status] + (body.note ? " — " + body.note : "")
         });
@@ -151,7 +154,7 @@ exports.handler = async function (event, context) {
       if (!isFinite(delta) || delta === 0) return jsonResponse(400, { error: "delta must be a non-zero number." });
       let who = null;
       if (body.empId) {
-        const { data: emp } = await supabase.from("employees").select("*").eq("id", body.empId).maybeSingle();
+        const { data: emp } = await db.from("employees").select("*").eq("id", body.empId).maybeSingle();
         who = emp || null;
         if (!roleAllowed(item, who)) {
           return jsonResponse(403, { error: "This item is restricted" + (who ? ". " + who.name + " isn't cleared for it." : "."), reason: "restricted" });
@@ -159,13 +162,13 @@ exports.handler = async function (event, context) {
       }
       const next = (Number(item.quantity) || 0) + delta;
       if (next < 0) return jsonResponse(409, { error: "Not enough in stock." });
-      const { data: updated, error: dbError } = await supabase
+      const { data: updated, error: dbError } = await db
         .from("items")
         .update({ quantity: next, updated_at: new Date().toISOString() })
         .eq("id", item.id).select().single();
       if (dbError) return jsonResponse(500, { error: dbError.message });
       const unit = item.unit_label || "units";
-      await addLog(supabase, {
+      await addLog(db, {
         type: delta >= 0 ? "restock" : "use",
         item_id: item.id, item_name: item.name,
         emp_id: who ? who.id : null, emp_name: who ? who.name : "",
@@ -177,7 +180,7 @@ exports.handler = async function (event, context) {
     if (action === "note") {
       const note = String(body.note || "").trim();
       if (!note) return jsonResponse(400, { error: "note is required." });
-      await addLog(supabase, { type: "note", item_id: item.id, item_name: item.name, note: note });
+      await addLog(db, { type: "note", item_id: item.id, item_name: item.name, note: note });
       return jsonResponse(200, { ok: true });
     }
 
@@ -187,7 +190,7 @@ exports.handler = async function (event, context) {
   /* ----- create / update details ----- */
   if (!body.id || !body.name) return jsonResponse(400, { error: "id and name are required." });
 
-  const { data: existing } = await supabase.from("items").select("*").eq("id", body.id).maybeSingle();
+  const { data: existing } = await db.from("items").select("*").eq("id", body.id).maybeSingle();
 
   const row = {
     id: body.id,
@@ -214,8 +217,8 @@ exports.handler = async function (event, context) {
     row.quantity = body.trackingMode === "consumable" ? Number(body.quantity) || 0 : null;
   }
 
-  const { data, error: dbError } = await supabase.from("items").upsert(row, { onConflict: "id" }).select().single();
+  const { data, error: dbError } = await db.from("items").upsert(row, { onConflict: "id" }).select().single();
   if (dbError) return jsonResponse(500, { error: dbError.message });
-  if (!existing) await addLog(supabase, { type: "add", item_id: data.id, item_name: data.name });
+  if (!existing) await addLog(db, { type: "add", item_id: data.id, item_name: data.name });
   return jsonResponse(200, { item: data });
 };

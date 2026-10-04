@@ -1,7 +1,11 @@
 /**
  * /api/branding
  *
- * GET            -> { appName, appSubtitle, logo }   (public: the sign-in page needs it)
+ * Branding now lives on the caller's venue row (venues.name / subtitle / logo).
+ *
+ * GET            -> { appName, appSubtitle, logo }   the generic placeholder for everyone: the
+ *                   sign-in page doesn't know the venue yet. Signed-in pages get their venue's
+ *                   branding from /api/bootstrap instead.
  * POST/PUT       -> save all three fields            (Settings: edit)
  * DELETE         -> reset to the placeholders        (Settings: edit)
  */
@@ -10,15 +14,6 @@ const { getSupabaseClient, requirePermission, jsonResponse } = require("./_share
 const DEFAULTS = { appName: "Inventorium", appSubtitle: "", logo: null };
 const LOGO_RE = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 
-function shape(row) {
-  if (!row) return DEFAULTS;
-  if (row.app_name === "Your Venue" && !row.logo) return DEFAULTS; // row created by the earlier placeholder migration
-  return {
-    appName: row.app_name || DEFAULTS.appName,
-    appSubtitle: row.app_subtitle == null ? DEFAULTS.appSubtitle : row.app_subtitle,
-    logo: row.logo && LOGO_RE.test(row.logo) ? row.logo : null
-  };
-}
 
 exports.handler = async function (event, context) {
   let supabase;
@@ -27,15 +22,14 @@ exports.handler = async function (event, context) {
   }
 
   if (event.httpMethod === "GET") {
-    const { data, error } = await supabase.from("app_branding").select("*").eq("id", "default").maybeSingle();
-    const res = jsonResponse(200, error ? DEFAULTS : shape(data)); // table not created yet -> placeholders
+    const res = jsonResponse(200, DEFAULTS);
     res.headers["Cache-Control"] = "no-store";
     return res;
   }
 
   if (["POST", "PUT", "DELETE"].indexOf(event.httpMethod) === -1) return jsonResponse(405, { error: "Method not allowed." });
 
-  const { error: authErr } = await requirePermission(context, supabase, "perm_settings", "edit");
+  const { employee: me, error: authErr } = await requirePermission(context, supabase, "perm_settings", "edit");
   if (authErr) return jsonResponse(authErr.statusCode, { error: authErr.message });
 
   let next = DEFAULTS;
@@ -52,12 +46,9 @@ exports.handler = async function (event, context) {
     next = { appName: name, appSubtitle: sub, logo: logo };
   }
 
-  const { error } = await supabase.from("app_branding").upsert({
-    id: "default", app_name: next.appName, app_subtitle: next.appSubtitle, logo: next.logo, updated_at: new Date().toISOString()
-  });
-  if (error) {
-    const missing = /app_branding/.test(error.message || "") && /exist|schema cache/i.test(error.message || "");
-    return jsonResponse(500, { error: missing ? "Branding table missing — run db/branding-migration.sql in Supabase." : "Couldn't save branding." });
-  }
+  const { error } = await supabase.from("venues")
+    .update({ name: next.appName, subtitle: next.appSubtitle, logo: next.logo })
+    .eq("id", me.venue_id);
+  if (error) return jsonResponse(500, { error: "Couldn't save branding." });
   return jsonResponse(200, next);
 };

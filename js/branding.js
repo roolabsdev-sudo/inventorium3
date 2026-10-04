@@ -1,7 +1,8 @@
 /**
  * Branding: venue name, subtitle and logo. Defaults are neutral placeholders;
  * admins change them in Settings -> Branding. The last-known value is cached in
- * localStorage so pages paint with the right name immediately.
+ * localStorage so pages paint with the right name immediately. The real value
+ * comes from /api/bootstrap after login (Store hands it to Branding.set).
  *
  * Markup hooks: [data-brand-name], [data-brand-sub], img[data-brand-logo], and
  * <title data-page="Inventory"> (becomes "Inventory — <name> <subtitle>").
@@ -21,8 +22,13 @@
       logo: typeof d.logo === "string" && /^data:image\/(png|jpeg|webp);base64,/.test(d.logo) ? d.logo : null
     };
   }
-  function readCache() { try { return clean(JSON.parse(localStorage.getItem(KEY))); } catch (e) { return clean(DEFAULTS); } }
-  function writeCache(d) { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} }
+  // The sign-in page doesn't know the venue yet, so it never shows a remembered venue's name.
+  var ON_LOGIN = /login\.html$/.test(location.pathname);
+  function readCache() {
+    if (ON_LOGIN) return clean(DEFAULTS);
+    try { return clean(JSON.parse(localStorage.getItem(KEY))); } catch (e) { return clean(DEFAULTS); }
+  }
+  function writeCache(d) { if (ON_LOGIN) return; try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} }
 
   var current = readCache();
 
@@ -65,11 +71,12 @@
     get: function () { return current; },
     logoSrc: function (d) { return (d || current).logo || PLACEHOLDER; },
     apply: apply,
+    set: set,
     save: function (d) { return authed("POST", d); },
     reset: function () { return authed("DELETE"); }
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply); else apply();
   apply();
-  fetch(FN, { cache: "no-store" }).then(parse).then(set).catch(function () {});
+  // Signed-in pages receive their venue's branding from /api/bootstrap (see Store.load).
 })(window);

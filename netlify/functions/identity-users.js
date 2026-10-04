@@ -8,7 +8,7 @@
  * app never stores or logs them.
  */
 
-const { getSupabaseClient, requirePermission, jsonResponse, identityAdmin, findIdentityUserByEmail } = require("./_shared/auth");
+const { getSupabaseClient, requirePermission, venueDb, jsonResponse, identityAdmin, findIdentityUserByEmail } = require("./_shared/auth");
 
 exports.handler = async function (event, context) {
   if (event.httpMethod !== "POST") return jsonResponse(405, { error: "Method not allowed." });
@@ -20,7 +20,7 @@ exports.handler = async function (event, context) {
     return jsonResponse(500, { error: e.message });
   }
 
-  const { error } = await requirePermission(context, supabase, "perm_employees", "edit");
+  const { employee: me, error } = await requirePermission(context, supabase, "perm_employees", "edit");
   if (error) return jsonResponse(error.statusCode, { error: error.message });
 
   let body;
@@ -34,8 +34,10 @@ exports.handler = async function (event, context) {
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) return jsonResponse(400, { error: "A valid email is required." });
   if (password.length < 8) return jsonResponse(400, { error: "Password must be at least 8 characters." });
 
-  // Only allow logins for emails that are on the roster.
-  const { data: emp } = await supabase.from("employees").select("id").eq("email", email).maybeSingle();
+  // Only allow logins for emails on THIS venue's roster. (If this looked at every venue,
+  // an admin here could set the password of someone on another venue's roster.)
+  const db = venueDb(supabase, me.venue_id);
+  const { data: emp } = await db.from("employees").select("id").eq("email", email).maybeSingle();
   if (!emp) return jsonResponse(404, { error: "Save the employee with this email first." });
 
   try {

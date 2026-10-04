@@ -13,7 +13,7 @@
  *   roles, locations, showRoles, shows – small reference lists (any logged-in user)
  */
 
-const { getSupabaseClient, getCallerEmployee, hasPermission, jsonResponse } = require("./_shared/auth");
+const { getSupabaseClient, getCallerEmployee, hasPermission, venueDb, getVenue, jsonResponse } = require("./_shared/auth");
 
 exports.handler = async function (event, context) {
   if (event.httpMethod !== "GET") return jsonResponse(405, { error: "Method not allowed." });
@@ -28,6 +28,8 @@ exports.handler = async function (event, context) {
   const { employee: me, error } = await getCallerEmployee(context, supabase);
   if (error) return jsonResponse(error.statusCode, { error: error.message });
 
+  const db = venueDb(supabase, me.venue_id);
+
   const canInv = hasPermission(me, "perm_inventory", "view");
   const canCall = hasPermission(me, "perm_call_list", "view");
   const canEmp = hasPermission(me, "perm_employees", "view");
@@ -35,7 +37,9 @@ exports.handler = async function (event, context) {
   const canSet = hasPermission(me, "perm_settings", "view");
   const anyAccess = canInv || canCall || canEmp || canSet;
 
-  const out = { me: me, items: [], log: [], callList: [], employees: [], roles: [], locations: [], showRoles: [], shows: [] };
+  const out = { me: me, branding: null, items: [], log: [], callList: [], employees: [], roles: [], locations: [], showRoles: [], shows: [] };
+  const venue = await getVenue(supabase, me.venue_id);
+  if (venue) out.branding = { appName: venue.name, appSubtitle: venue.subtitle || "", logo: venue.logo || null };
   if (!anyAccess) return jsonResponse(200, out);
 
   const jobs = [];
@@ -46,18 +50,18 @@ exports.handler = async function (event, context) {
     }));
   }
 
-  load("roles", supabase.from("roles").select("*").order("name"));
-  load("locations", supabase.from("locations").select("*").order("name"));
-  load("showRoles", supabase.from("show_roles").select("*").order("name"));
-  load("shows", supabase.from("shows").select("*").order("name"));
-  load("employees", supabase.from("employees").select(canEmpEdit
+  load("roles", db.from("roles").select("*").order("name"));
+  load("locations", db.from("locations").select("*").order("name"));
+  load("showRoles", db.from("show_roles").select("*").order("name"));
+  load("shows", db.from("shows").select("*").order("name"));
+  load("employees", db.from("employees").select(canEmpEdit
     ? "*"
     : "id,name,role_id,active,photo").order("name"));
   if (canInv) {
-    load("items", supabase.from("items").select("*").order("name"));
-    load("log", supabase.from("activity_log").select("*").order("ts", { ascending: false }).limit(500));
+    load("items", db.from("items").select("*").order("name"));
+    load("log", db.from("activity_log").select("*").order("ts", { ascending: false }).limit(500));
   }
-  if (canCall) load("callList", supabase.from("call_list").select("*"));
+  if (canCall) load("callList", db.from("call_list").select("*"));
 
   try {
     await Promise.all(jobs);
