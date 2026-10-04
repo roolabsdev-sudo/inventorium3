@@ -1,0 +1,14 @@
+.branding-logo-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.branding-logo-box {
+  width: 72px; height: 72px; flex: none; display: grid; place-items: center;
+  background: var(--panel); border: 1px solid var(--edge-strong); border-radius: var(--radius);
+}
+.branding-logo-box img { width: 48px; height: 48px; object-fit: contain; }
+.branding-logo-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex: 1; min-width: 200px; }
+.branding-preview {
+  margin-top: 18px; padding: 16px 14px; max-width: 232px;
+  background: var(--panel); border: 1px solid var(--edge); border-radius: var(--radius);
+}
+.branding-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.branding-form input:disabled { opacity: .7; }
+@media (max-width: 520px) { .branding-form .form-grid { grid-template-columns: 1fr; } }

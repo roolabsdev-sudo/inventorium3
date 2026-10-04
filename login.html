@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-page="Sign in">Sign in — Inventorium</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <script src="js/branding.js"></script>
+</head>
+<body>
+  <main class="login-wrap">
+    <section class="login-card" aria-labelledby="login-title">
+      <img class="login-mark" data-brand-logo src="img/logo-placeholder.png" alt="" aria-hidden="true" />
+      <h1 id="login-title" data-brand-name>Inventorium</h1>
+      <p class="dim login-sub">Inventory &amp; crew — sign in with the email and password your advisor set up for you.</p>
+      <button class="btn btn-primary login-btn" type="button" id="login-btn">Sign in</button>
+      <p class="dim" id="login-note" style="margin-top:14px;font-size:.85rem;"></p>
+      <p class="dim" style="margin-top:18px;font-size:.8rem;">Forgot your password? Choose <em>Sign in</em>, then <em>Forgot password?</em> — or ask an advisor to set a new one.</p>
+    </section>
+  </main>
+
+  <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <script>
+    (function () {
+      "use strict";
+      var params = new URLSearchParams(location.search);
+      var next = params.get("next") || "index.html";
+      if (!/^[a-z0-9-]+\.html$/i.test(next)) next = "index.html";
+
+      var note = document.getElementById("login-note");
+      var btn = document.getElementById("login-btn");
+
+      function go() { location.replace(next); }
+
+      netlifyIdentity.on("login", function () {
+        netlifyIdentity.close();
+        note.textContent = "Signed in — loading…";
+        go();
+      });
+      netlifyIdentity.on("error", function (err) {
+        note.textContent = (err && err.message) || "Couldn't sign in. Try again.";
+      });
+      netlifyIdentity.on("init", function (user) {
+        if (user) go();
+      });
+      netlifyIdentity.init();
+
+      btn.addEventListener("click", function () { netlifyIdentity.open("login"); });
+
+      // Open the sign-in box right away unless an emailed invite/reset link is being handled.
+      if (!/(invite|recovery|confirmation|email_change)_token=/.test(location.hash) && !netlifyIdentity.currentUser()) {
+        setTimeout(function () { netlifyIdentity.open("login"); }, 150);
+      }
+    })();
+  </script>
+</body>
+</html>

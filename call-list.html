@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-page="Call List">Call List — Inventorium</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <script src="js/branding.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" id="rail"></aside>
+
+    <main class="main">
+
+      <!-- ===== Pick a show, view/edit its call list (access is controlled by login permissions) ===== -->
+      <section id="list-view">
+        <header class="page-head">
+          <div>
+            <h1>Call List</h1>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span class="badge badge-ok" id="viewer-badge"></span>
+          </div>
+        </header>
+
+        <section class="module" aria-labelledby="show-picker-title">
+          <div class="module-head">
+            <h2 id="show-picker-title">Show</h2>
+          </div>
+          <div class="module-body">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <select id="show-select" style="min-height:44px; max-width:320px; flex:1;"></select>
+              <button class="btn btn-primary edit-only" type="button" id="add-person-btn" disabled>
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                Add person
+              </button>
+            </div>
+            <p class="dim" id="no-shows-note" style="margin-top: 12px; display:none;">
+              No shows yet — <a href="settings.html" style="text-decoration: underline;">add one in Settings</a>.
+            </p>
+          </div>
+        </section>
+
+        <div id="roster-empty" class="dim" style="padding: 40px 4px; display:none;">
+          Nobody's been added to this call list yet.
+        </div>
+
+        <div id="roster-grid" class="call-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Add person to call list dialog -->
+  <dialog id="person-dialog">
+    <form method="dialog" id="person-form">
+      <h2>Add to call list</h2>
+
+      <div class="form-grid">
+        <label class="form-field form-field-wide">
+          <span>Employee</span>
+          <select id="f-person-emp"></select>
+          <span class="dim" id="f-person-emp-empty" hidden style="font-size: .82rem;">
+            No employees available to add.
+          </span>
+        </label>
+
+        <label class="form-field form-field-wide">
+          <span>Show role</span>
+          <select id="f-person-role"></select>
+          <span class="dim" id="f-person-role-empty" hidden style="font-size: .82rem;">
+            No show roles yet — <a href="settings.html" style="text-decoration: underline;">add one in Settings</a>.
+          </span>
+        </label>
+
+        <label class="form-field form-field-wide" style="flex-direction:row; align-items:center; gap:8px;">
+          <input type="checkbox" id="f-person-comm" style="width:auto; min-height:auto;" />
+          <span style="color:var(--text)">Has a comm for this show</span>
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <span style="flex:1"></span>
+        <button type="button" class="btn btn-ghost" id="person-cancel-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="person-save-btn">Add to list</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/boot.js" data-area="callList" data-need="view" data-page="js/call-list.js"></script>
+</body>
+</html>

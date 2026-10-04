@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-page="">Inventorium</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <script src="js/branding.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" id="rail"></aside>
+
+    <main class="main">
+      <header class="page-head">
+        <div>
+          <h1>Gear on hand</h1>
+        </div>
+        <a class="btn btn-primary edit-only" href="scan.html">
+          <svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"/></svg>
+          Open scanner
+        </a>
+      </header>
+
+      <section class="readouts" aria-label="Inventory status" id="readouts"></section>
+
+      <div class="grid-2">
+        <section class="module" aria-labelledby="overdue-title">
+          <div class="module-head">
+            <h2 id="overdue-title">Checked out right now</h2>
+            <a href="inventory.html" class="dim" style="font-size:.85rem">View all →</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Item</th>
+                  <th scope="col">Held by</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody id="out-rows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="module" aria-labelledby="act-title">
+          <div class="module-head">
+            <h2 id="act-title">Recent activity</h2>
+          </div>
+          <ul class="feed" id="feed"></ul>
+        </section>
+      </div>
+
+      <section class="module" aria-labelledby="lowstock-title" style="margin-top:22px">
+        <div class="module-head">
+          <h2 id="lowstock-title">Consumables running low</h2>
+          <a href="inventory.html" class="dim" style="font-size:.85rem">View all →</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Item</th>
+                <th scope="col">On hand</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody id="lowstock-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p class="dim" style="margin-top:28px; font-size:.8rem">Data is saved to the cloud and shared with everyone who has an account.</p>
+    </main>
+  </div>
+
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/boot.js" data-area="inventory" data-need="view" data-page="js/dashboard.js"></script>
+</body>
+</html>

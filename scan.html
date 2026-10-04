@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-page="Scan">Scan — Inventorium</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <script src="js/branding.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" id="rail"></aside>
+
+    <main class="main">
+      <header class="page-head">
+        <div>
+          <h1>Scan</h1>
+        </div>
+      </header>
+
+      <div class="grid-2">
+        <section class="module" aria-labelledby="scan-title">
+          <div class="module-head">
+            <h2 id="scan-title">Camera</h2>
+            <div style="display:flex; align-items:center; gap:10px">
+              <span class="badge badge-ok" id="scan-state">Starting…</span>
+              <button class="btn btn-ghost" type="button" id="torch-btn" hidden>
+                <svg viewBox="0 0 24 24"><path d="M9 2h6l-1 7h4l-9 13 2-9H7z"/></svg>
+                Torch
+              </button>
+            </div>
+          </div>
+          <div class="module-body">
+            <div class="scan-stage" id="stage">
+              <video id="video" playsinline muted autoplay style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;"></video>
+              <div id="fallback-container" style="position:absolute; inset:0;"></div>
+              <div class="feed-noise" aria-hidden="true"></div>
+              <div class="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+              <div class="scanline" aria-hidden="true"></div>
+              <div class="scan-hint" id="scan-hint">Requesting camera…</div>
+            </div>
+
+            <div class="qty-row" id="qty-row">
+              <span class="dim" style="font-size:.85rem">Qty for next consumable</span>
+              <div class="stepper">
+                <button class="btn btn-ghost" type="button" id="qty-minus" aria-label="Decrease quantity">−</button>
+                <input type="number" id="qty-input" class="mono" min="1" step="1" value="1" inputmode="numeric" aria-label="Quantity" />
+                <button class="btn btn-ghost" type="button" id="qty-plus" aria-label="Increase quantity">+</button>
+              </div>
+            </div>
+
+            <form class="manual" id="manual-form">
+              <label class="field">
+                <input type="text" id="manual-input" class="mono" placeholder="Or type an ID / tag, e.g. ID-2291 or LX-0142" autocomplete="off" aria-label="ID or tag" />
+              </label>
+              <button class="btn" type="submit">Enter</button>
+            </form>
+          </div>
+        </section>
+
+        <div style="display:grid; gap:20px">
+          <section class="module" aria-labelledby="session-title">
+            <div class="module-head">
+              <h2 id="session-title">Current session</h2>
+              <button class="btn btn-ghost" type="button" id="end-session" style="min-height:32px; padding:0 12px; font-size:.82rem;">End</button>
+            </div>
+            <div class="module-body" id="session-body">
+              <p class="dim">Scan an employee ID to start. Every item scanned after that checks in or out under their name.</p>
+            </div>
+          </section>
+
+          <section class="module" aria-labelledby="result-title">
+            <div class="module-head">
+              <h2 id="result-title">Last scan</h2>
+            </div>
+            <div class="module-body" id="result-body">
+              <p class="dim">Nothing scanned yet.</p>
+            </div>
+          </section>
+
+          <section class="module" aria-labelledby="feed-title">
+            <div class="module-head">
+              <h2 id="feed-title">Session log</h2>
+            </div>
+            <ul class="feed" id="session-log">
+              <li><span class="dim" style="padding:2px 0">No activity yet.</span></li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/vendor/html5-qrcode.min.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/camera-scanner.js"></script>
+  <script src="js/boot.js" data-area="inventory" data-need="edit" data-page="js/scan.js"></script>
+</body>
+</html>

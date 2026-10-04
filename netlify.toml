@@ -1,0 +1,14 @@
+[build]
+  functions = "netlify/functions"
+  publish = "."
+
+[functions]
+  node_bundler = "esbuild"
+
+# Netlify Identity widget endpoints live under /.netlify/identity/* automatically
+# once Identity is enabled in the site dashboard — no redirect rules needed for it.
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200

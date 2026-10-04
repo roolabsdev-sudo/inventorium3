@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-page="Settings">Settings — Inventorium</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/branding.css" />
+  <script src="js/branding.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" id="rail"></aside>
+
+    <main class="main">
+      <header class="page-head">
+        <div>
+          <h1>Settings</h1>
+        </div>
+        <button class="btn btn-primary edit-only" type="button" id="add-role-btn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Add role
+        </button>
+      </header>
+
+      <section class="module" aria-labelledby="roles-title">
+        <div class="module-head">
+          <h2 id="roles-title">Role categories</h2>
+          <span class="dim mono" id="role-count"></span>
+        </div>
+        <div class="module-body">
+          <p class="dim" style="margin-bottom: 4px;">
+            Every employee belongs to one role category. Items can optionally be restricted so only certain
+            roles are allowed to check them out — useful for gear that needs training or lead approval.
+          </p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Role</th>
+                <th scope="col">People</th>
+                <th scope="col">Restricted items</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="role-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <header class="page-head" style="margin-top: 28px;">
+        <div>
+          <h2 style="margin: 0;">Locations</h2>
+        </div>
+        <button class="btn btn-primary edit-only" type="button" id="add-location-btn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Add location
+        </button>
+      </header>
+
+      <section class="module" aria-labelledby="locations-title">
+        <div class="module-head">
+          <h2 id="locations-title">Storage locations</h2>
+          <span class="dim mono" id="location-count"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Location</th>
+                <th scope="col">Items</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="location-rows"></tbody>
+          </table>
+        </div>
+      </section>
+      <header class="page-head" style="margin-top: 28px;">
+        <div><h2 style="margin: 0;">Show roles</h2></div>
+        <button class="btn btn-primary edit-only" type="button" id="add-showrole-btn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Add show role
+        </button>
+      </header>
+      <section class="module" aria-labelledby="showroles-title">
+        <div class="module-head">
+          <h2 id="showroles-title">Positions on a show</h2>
+          <span class="dim mono" id="showrole-count"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Role</th><th scope="col">Used by</th><th scope="col"></th></tr></thead>
+            <tbody id="showrole-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <header class="page-head" style="margin-top: 28px;">
+        <div><h2 style="margin: 0;">Shows</h2></div>
+        <button class="btn btn-primary edit-only" type="button" id="add-show-btn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Add show
+        </button>
+      </header>
+      <section class="module" aria-labelledby="shows-title">
+        <div class="module-head">
+          <h2 id="shows-title">Shows</h2>
+          <span class="dim mono" id="show-count"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Show</th><th scope="col">Call list</th><th scope="col"></th></tr></thead>
+            <tbody id="show-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <header class="page-head" style="margin-top: 28px;">
+        <div><h2 style="margin: 0;">Branding</h2></div>
+      </header>
+      <section class="module" aria-labelledby="branding-title">
+        <div class="module-head">
+          <h2 id="branding-title">Name &amp; logo</h2>
+        </div>
+        <div class="module-body">
+          <p class="dim" style="margin-bottom:16px;">Shown in the sidebar, on the sign-in page and in the browser tab. Until you set these, the app uses a generic placeholder name and logo.</p>
+          <form id="branding-form" class="branding-form" autocomplete="off">
+            <div class="form-grid">
+              <label class="form-field">
+                <span>Name</span>
+                <input type="text" id="f-brand-name" maxlength="60" required placeholder="e.g. Lincoln High Theater" />
+              </label>
+              <label class="form-field">
+                <span>Subtitle <span class="dim">(optional)</span></span>
+                <input type="text" id="f-brand-sub" maxlength="40" placeholder="e.g. Inventory" />
+              </label>
+              <div class="form-field form-field-wide">
+                <span>Logo</span>
+                <div class="branding-logo-row">
+                  <div class="branding-logo-box"><img id="brand-logo-preview" alt="" /></div>
+                  <div class="branding-logo-actions">
+                    <input type="file" id="f-brand-logo" accept="image/png,image/jpeg,image/webp" hidden />
+                    <button type="button" class="btn btn-ghost edit-only" id="brand-logo-pick">Upload image</button>
+                    <button type="button" class="btn btn-ghost edit-only" id="brand-logo-remove" hidden>Use placeholder</button>
+                    <span class="dim" style="font-size:.78rem;">PNG, JPEG or WebP. A square image with a transparent background looks best.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="branding-preview" aria-label="Sidebar preview">
+              <div class="brand">
+                <img class="brand-mark" id="brand-preview-logo" alt="" />
+                <div style="min-width:0"><span class="brand-name" id="brand-preview-name" style="overflow-wrap:anywhere"></span><span class="brand-sub" id="brand-preview-sub"></span></div>
+              </div>
+            </div>
+            <div class="branding-actions edit-only">
+              <button type="button" class="btn btn-ghost" id="brand-reset">Reset to placeholders</button>
+              <button type="submit" class="btn btn-primary" id="brand-save">Save branding</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- One-time import of data saved in this browser by the old (pre-login) version -->
+      <section class="module edit-only" id="import-section" aria-labelledby="import-title" hidden style="margin-top:28px;">
+        <div class="module-head">
+          <h2 id="import-title">Import old browser data</h2>
+        </div>
+        <div class="module-body">
+          <p class="dim" id="import-summary" style="margin-bottom:14px;"></p>
+          <p class="dim" style="margin-bottom:14px;font-size:.85rem;">Copies items, employees, roles, locations, shows and call lists into the cloud. Safe to run again: anything already imported is left alone. Imported employees get no login or page access until you set them on the Employees page.</p>
+          <button type="button" class="btn btn-primary" id="import-btn">Import into the cloud</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Add / edit role dialog -->
+  <dialog id="role-dialog">
+    <form method="dialog" id="role-form">
+      <h2 id="role-dialog-title">Add role</h2>
+
+      <div class="form-grid">
+        <label class="form-field form-field-wide">
+          <span>Role name</span>
+          <input type="text" id="f-role-name" required placeholder="e.g. Student crew" />
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost btn-danger" id="role-delete-btn" hidden>Delete role</button>
+        <span style="flex:1"></span>
+        <button type="button" class="btn btn-ghost" id="role-cancel-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="role-save-btn">Save role</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Add / edit location dialog -->
+  <dialog id="location-dialog">
+    <form method="dialog" id="location-form">
+      <h2 id="location-dialog-title">Add location</h2>
+
+      <div class="form-grid">
+        <label class="form-field form-field-wide">
+          <span>Location name</span>
+          <input type="text" id="f-location-name" required placeholder="e.g. Green room" />
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost btn-danger" id="location-delete-btn" hidden>Delete location</button>
+        <span style="flex:1"></span>
+        <button type="button" class="btn btn-ghost" id="location-cancel-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="location-save-btn">Save location</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="showrole-dialog">
+    <form method="dialog" id="showrole-form">
+      <h2 id="showrole-dialog-title">Add show role</h2>
+      <div class="form-grid">
+        <label class="form-field form-field-wide">
+          <span>Role name</span>
+          <input type="text" id="f-showrole-name" required placeholder="e.g. Stage Manager" />
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost btn-danger" id="showrole-delete-btn" hidden>Delete</button>
+        <span style="flex:1"></span>
+        <button type="button" class="btn btn-ghost" id="showrole-cancel-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="showrole-save-btn">Save role</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="show-dialog">
+    <form method="dialog" id="show-form">
+      <h2 id="show-dialog-title">Add show</h2>
+      <div class="form-grid">
+        <label class="form-field form-field-wide">
+          <span>Show name</span>
+          <input type="text" id="f-show-name" required placeholder="e.g. Fall Musical" />
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost btn-danger" id="show-delete-btn" hidden>Delete</button>
+        <span style="flex:1"></span>
+        <button type="button" class="btn btn-ghost" id="show-cancel-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="show-save-btn">Save show</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/boot.js" data-area="settings" data-need="view" data-page="js/settings.js"></script>
+</body>
+</html>

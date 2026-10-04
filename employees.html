@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-page="Employees">Employees — Inventorium</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <script src="js/branding.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" id="rail"></aside>
+
+    <main class="main">
+      <header class="page-head">
+        <div>
+          <h1>Employees</h1>
+        </div>
+        <button class="btn btn-primary edit-only" type="button" id="add-emp-btn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Add employee
+        </button>
+      </header>
+
+      <section class="module" aria-labelledby="emp-title">
+        <div class="module-head">
+          <h2 id="emp-title">Roster</h2>
+          <span class="dim mono" id="row-count"></span>
+        </div>
+        <div class="module-body">
+          <div class="toolbar">
+            <label class="field">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>
+              <input type="search" id="search" placeholder="Search name, ID, or role" autocomplete="off" />
+            </label>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">ID</th>
+                <th scope="col">Role</th>
+                <th scope="col">Status</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Add / edit employee dialog -->
+  <dialog id="emp-dialog">
+    <form method="dialog" id="emp-form">
+      <h2 id="dialog-title">Add employee</h2>
+
+      <div class="form-grid">
+        <label class="form-field form-field-wide">
+          <span>Name</span>
+          <input type="text" id="f-name" required placeholder="e.g. Dana R." />
+        </label>
+
+        <label class="form-field">
+          <span>ID</span>
+          <div style="display:flex; gap:8px">
+            <input type="text" id="f-id" class="mono" placeholder="Auto-generated" />
+            <button type="button" class="btn btn-ghost" id="f-id-regen" style="min-height:40px; padding:0 12px;">New</button>
+          </div>
+        </label>
+
+        <label class="form-field">
+          <span>Role</span>
+          <select id="f-role"></select>
+          <span class="dim" id="f-role-empty" hidden style="font-size: .82rem;">
+            No roles yet — <a href="settings.html" style="text-decoration: underline;">add one in Settings</a>.
+          </span>
+        </label>
+
+        <div class="form-field form-field-wide" id="f-photo-field">
+          <span>Photo (shown on the call list)</span>
+          <div class="photo-upload">
+            <div class="photo-preview" id="f-photo-preview"><span class="dim" style="font-size:.78rem">No photo</span></div>
+            <div class="photo-upload-actions">
+              <input type="file" id="f-photo-input" accept="image/*" hidden />
+              <button type="button" class="btn btn-ghost" id="f-photo-pick">Choose photo</button>
+              <button type="button" class="btn btn-ghost btn-danger" id="f-photo-remove" hidden>Remove photo</button>
+            </div>
+          </div>
+        </div>
+
+        <label class="form-field form-field-wide">
+          <span>Login email (their username)</span>
+          <input type="email" id="f-email" autocomplete="off" placeholder="name@school.org" />
+        </label>
+        <label class="form-field form-field-wide">
+          <span id="f-password-label">Password (min. 8 characters)</span>
+          <input type="password" id="f-password" autocomplete="new-password" minlength="8" placeholder="Leave blank to keep the current password" />
+        </label>
+        <p class="dim form-field-wide" style="font-size:.8rem;margin:0;">Email and password let this person sign in. Choose what each page lets them do:</p>
+        <div class="perm-grid form-field-wide">
+        <label class="form-field">
+          <span>Inventory &amp; Scan</span>
+          <select id="f-perm-inventory">
+            <option value="none">No access</option>
+            <option value="view">View only</option>
+            <option value="edit">Can edit</option>
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Call List</span>
+          <select id="f-perm-call">
+            <option value="none">No access</option>
+            <option value="view">View only</option>
+            <option value="edit">Can edit</option>
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Employees</span>
+          <select id="f-perm-employees">
+            <option value="none">No access</option>
+            <option value="view">View only</option>
+            <option value="edit">Can edit</option>
+          </select>
+        </label>
+        <label class="form-field">
+          <span>Settings</span>
+          <select id="f-perm-settings">
+            <option value="none">No access</option>
+            <option value="view">View only</option>
+            <option value="edit">Can edit</option>
+          </select>
+        </label>
+        </div>
+
+        <label class="form-field form-field-wide" style="flex-direction:row; align-items:center; gap:8px;">
+          <input type="checkbox" id="f-active" checked style="width:auto; min-height:auto;" />
+          <span style="color:var(--text)">Active — can check items in and out</span>
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost btn-danger" id="delete-btn" hidden>Delete employee</button>
+        <span style="flex:1"></span>
+        <button type="button" class="btn btn-ghost" id="cancel-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="save-btn">Save employee</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ID card / barcode dialog -->
+  <dialog id="barcode-dialog">
+    <div class="barcode-card">
+      <div class="barcode-item-name" id="bc-name"></div>
+      <div class="dim" id="bc-role" style="margin:-8px 0 14px; color:#555; font-size:.85rem;"></div>
+      <svg id="bc-svg"></svg>
+      <div class="barcode-id mono" id="bc-id"></div>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-ghost" id="bc-close">Close</button>
+      <button type="button" class="btn btn-primary" id="bc-print">
+        <svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z"/></svg>
+        Print ID card
+      </button>
+    </div>
+  </dialog>
+
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/vendor/jsbarcode.min.js"></script>
+  <script src="js/boot.js" data-area="employees" data-need="view" data-page="js/employees.js"></script>
+</body>
+</html>

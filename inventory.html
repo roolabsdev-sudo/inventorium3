@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-page="Inventory">Inventory — Inventorium</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <script src="js/branding.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail" id="rail"></aside>
+
+    <main class="main">
+      <header class="page-head">
+        <div>
+          <h1>Inventory</h1>
+        </div>
+        <button class="btn btn-primary edit-only" type="button" id="add-item-btn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Add item
+        </button>
+      </header>
+
+      <section class="module" aria-labelledby="inv-title">
+        <div class="module-head">
+          <h2 id="inv-title">Items</h2>
+          <span class="dim mono" id="row-count"></span>
+        </div>
+        <div class="module-body">
+          <div class="toolbar">
+            <label class="field">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>
+              <input type="search" id="search" placeholder="Search name, tag ID, alias, or location" autocomplete="off" />
+            </label>
+          </div>
+          <div class="chips" role="group" aria-label="Filter by status" style="margin-bottom:14px">
+            <button class="chip" type="button" data-filter="all" aria-pressed="true">All</button>
+            <button class="chip" type="button" data-filter="ok" aria-pressed="false">Available</button>
+            <button class="chip" type="button" data-filter="out" aria-pressed="false">Checked out</button>
+            <button class="chip" type="button" data-filter="maint" aria-pressed="false">Maintenance</button>
+            <button class="chip" type="button" data-filter="fault" aria-pressed="false">Damaged</button>
+            <button class="chip" type="button" data-filter="low-stock" aria-pressed="false">Low stock</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Item</th>
+                <th scope="col">Tag ID</th>
+                <th scope="col">Location</th>
+                <th scope="col">Status</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Add / edit item dialog -->
+  <dialog id="item-dialog">
+    <form method="dialog" id="item-form">
+      <h2 id="dialog-title">Add item</h2>
+
+      <div class="form-grid">
+        <label class="form-field" id="f-tracking-field">
+          <span>Tracking type</span>
+          <select id="f-tracking-mode">
+            <option value="unit">Serialized units (trackable gear)</option>
+            <option value="consumable">Consumable stock (quantity on hand)</option>
+          </select>
+        </label>
+        <span class="dim form-field-wide" id="f-tracking-locked-note" hidden style="font-size:.8rem; margin-top:-8px;">
+          Tracking type can't be changed after an item is created.
+        </span>
+
+        <label class="form-field">
+          <span>Name</span>
+          <input type="text" id="f-name" required placeholder="e.g. ETC Source Four 26°" />
+        </label>
+
+        <label class="form-field">
+          <span>Category</span>
+          <select id="f-category"></select>
+        </label>
+
+        <label class="form-field">
+          <span>Tag ID</span>
+          <div style="display:flex; gap:8px">
+            <input type="text" id="f-id" class="mono" placeholder="Auto-generated" />
+            <button type="button" class="btn btn-ghost" id="f-id-regen" style="min-height:40px; padding:0 12px;">New</button>
+          </div>
+        </label>
+
+        <label class="form-field">
+          <span>Location</span>
+          <select id="f-location"></select>
+        </label>
+
+        <label class="form-field" id="f-quantity-field">
+          <span>Quantity <span class="dim">(creates units numbered -1, -2, ...)</span></span>
+          <input type="number" id="f-quantity" min="1" max="50" step="1" value="1" />
+        </label>
+
+        <label class="form-field" id="f-stock-qty-field">
+          <span>Quantity on hand</span>
+          <input type="number" id="f-stock-qty" min="0" step="1" value="0" />
+        </label>
+
+        <label class="form-field" id="f-stock-unit-field">
+          <span>Unit of measure</span>
+          <input type="text" id="f-stock-unit" placeholder="e.g. rolls, ft, batteries, each" />
+        </label>
+
+        <label class="form-field" id="f-stock-min-field">
+          <span>Low-stock alert below</span>
+          <input type="number" id="f-stock-min" min="0" step="1" value="0" />
+        </label>
+
+        <div class="form-field form-field-wide" id="f-photo-field">
+          <span>Photo</span>
+          <div class="photo-upload">
+            <div class="photo-preview" id="f-photo-preview"><span class="dim" style="font-size:.78rem">No photo</span></div>
+            <div class="photo-upload-actions">
+              <input type="file" id="f-photo-input" accept="image/*" hidden />
+              <button type="button" class="btn btn-ghost" id="f-photo-pick">Choose photo</button>
+              <button type="button" class="btn btn-ghost btn-danger" id="f-photo-remove" hidden>Remove photo</button>
+            </div>
+          </div>
+        </div>
+
+        <label class="form-field" id="f-serial-field">
+          <span>Serial number</span>
+          <input type="text" id="f-serial" placeholder="Optional" />
+        </label>
+
+        <label class="form-field" id="f-condition-field">
+          <span>Condition</span>
+          <select id="f-condition"></select>
+        </label>
+
+        <label class="form-field" id="f-purchase-date-field">
+          <span>Purchase date</span>
+          <input type="date" id="f-purchase-date" />
+        </label>
+
+        <label class="form-field" id="f-purchase-cost-field">
+          <span>Purchase cost</span>
+          <input type="number" id="f-purchase-cost" min="0" step="0.01" placeholder="0.00" />
+        </label>
+
+        <label class="form-field form-field-wide" id="f-manual-url-field">
+          <span>Manual / warranty link</span>
+          <input type="url" id="f-manual-url" placeholder="https://..." />
+        </label>
+
+        <label class="form-field form-field-wide">
+          <span>Aliases <span class="dim">(what students actually call it, comma-separated)</span></span>
+          <input type="text" id="f-aliases" placeholder="e.g. spotlight, leko, ellipsoidal" />
+        </label>
+
+        <label class="form-field form-field-wide">
+          <span>Notes</span>
+          <textarea id="f-notes" rows="2" placeholder="Optional"></textarea>
+        </label>
+
+        <div class="form-field form-field-wide" id="f-roles-field">
+          <span>Restrict to roles <span class="dim">(leave all unchecked to allow anyone)</span></span>
+          <div class="role-checks" id="f-roles"></div>
+          <span class="dim" id="f-roles-empty" hidden style="font-size: .82rem;">
+            No roles yet — <a href="settings.html" style="text-decoration: underline;">add some in Settings</a> to restrict items.
+          </span>
+        </div>
+
+        <div class="form-field form-field-wide" id="f-status-section" hidden>
+          <span>Status</span>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select id="f-status-select" style="min-height:38px; max-width:220px; flex:none;"></select>
+            <button type="button" class="btn btn-ghost" id="f-status-apply">Update status</button>
+          </div>
+          <span class="dim" id="f-status-locked-note" hidden style="font-size:.8rem;"></span>
+
+          <div style="margin-top:14px">
+            <span>Add a maintenance note</span>
+            <textarea id="f-history-note" rows="2" placeholder="e.g. Cleaned lens, replaced gel, sent out for repair..." style="width:100%; margin-top:6px;"></textarea>
+            <div style="display:flex; justify-content:flex-end; margin-top:6px;">
+              <button type="button" class="btn btn-ghost" id="f-history-add">Log note</button>
+            </div>
+          </div>
+
+          <div style="margin-top:10px">
+            <span>History</span>
+            <ul class="feed" id="f-history-list" style="margin-top:6px; max-height:180px; overflow-y:auto;"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost btn-danger" id="delete-btn" hidden>Delete item</button>
+        <span style="flex:1"></span>
+        <button type="button" class="btn btn-ghost" id="cancel-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="save-btn">Save item</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Stock adjustment dialog -->
+  <dialog id="stock-dialog">
+    <form method="dialog" id="stock-form">
+      <h2 id="stock-dialog-title">Adjust stock</h2>
+      <div class="form-grid">
+        <p class="dim form-field-wide" id="stock-dialog-sub" style="margin:-4px 0 0"></p>
+        <label class="form-field">
+          <span>Amount</span>
+          <input type="number" id="stock-amount" min="1" step="1" value="1" />
+        </label>
+        <label class="form-field">
+          <span>Reason <span class="dim">(optional)</span></span>
+          <input type="text" id="stock-note" placeholder="e.g. Restocked from storage" />
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" id="stock-cancel-btn">Cancel</button>
+        <button type="button" class="btn btn-ghost" id="stock-use-btn">Use stock</button>
+        <button type="submit" class="btn btn-primary">Restock</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Barcode dialog -->
+  <dialog id="barcode-dialog">
+    <div class="barcode-card">
+      <div class="barcode-item-name" id="bc-name"></div>
+      <svg id="bc-svg"></svg>
+      <div class="barcode-id mono" id="bc-id"></div>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-ghost" id="bc-close">Close</button>
+      <button type="button" class="btn btn-primary" id="bc-print">
+        <svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z"/></svg>
+        Print label
+      </button>
+    </div>
+  </dialog>
+
+  <script src="js/store.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/vendor/jsbarcode.min.js"></script>
+  <script src="js/boot.js" data-area="inventory" data-need="view" data-page="js/inventory.js"></script>
+</body>
+</html>
